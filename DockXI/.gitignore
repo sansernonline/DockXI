@@ -1,0 +1,55 @@
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vsconfig
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# WinUI / MSIX build outputs
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.msixupload
+
+# Publish output
+publish/
+PublishProfiles/
+
+# Test results / coverage
+TestResults/
+coverage/
+*.coveragexml
+*.coverage
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Logs
+*.log
+Logs/
+
+# Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+# Claude Code project metadata
+.claude/

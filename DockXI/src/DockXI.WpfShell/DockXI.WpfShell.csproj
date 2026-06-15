@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <RootNamespace>DockXI.WpfShell</RootNamespace>
+    <AssemblyName>DockXI.WpfShell</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DockXI.Core\DockXI.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Central Package Management (Directory.Packages.props) pins versions —
+         PackageReference must NOT carry Version here. -->
+    <PackageReference Include="gong-wpf-dragdrop" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
+
+</Project>

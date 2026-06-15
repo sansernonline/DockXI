@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <!-- Suppress package-restore warnings from Central Package Management on test tooling -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- NuGet audit hits api.nuget.org/v3-vulnerabilities; offline/slow network → NU1900.
+         The check is informational, not required for build correctness. Skip it. -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

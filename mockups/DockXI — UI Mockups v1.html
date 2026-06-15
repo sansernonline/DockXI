@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<!-- saved from url=(0097)file:///C:/Users/sanse/OneDrive/WORK/_KK/Projects/DockXI%20-%20Floating%20Dock/mockups/index.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DockXI — UI Mockups v1</title>
+<style>
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --win-bg-a: #0b1d3a;
+  --win-bg-b: #1a3666;
+  --win-bg-c: #2254a3;
+  --taskbar:  rgba(16,16,16,0.97);
+  --plate:    rgba(32,32,32,0.91);
+  --plate-border: rgba(255,255,255,0.10);
+  --surface:  rgba(44,44,44,0.95);
+  --accent:   #0078d4;
+  --accent2:  #60b0ff;
+  --text:     rgba(255,255,255,0.95);
+  --text-dim: rgba(255,255,255,0.55);
+  --text-hint:rgba(255,255,255,0.32);
+  --sep:      rgba(255,255,255,0.08);
+  --icon-r:   6px;
+  --dock-r:   10px;
+  --gap:      8px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
+     background:#0d0d0d;color:#fff;min-height:100vh;user-select:none}
+
+/* ── Page Header ───────────────────────────────────────────── */
+.ph{background:#181818;border-bottom:1px solid var(--sep);
+    padding:14px 28px;display:flex;align-items:center;gap:12px}
+.ph-logo{width:30px;height:30px;background:var(--accent);border-radius:7px;
+         display:flex;align-items:center;justify-content:center;
+         font-size:15px;font-weight:700;flex-shrink:0}
+.ph-title{font-size:17px;font-weight:600}
+.ph-sub{font-size:11px;color:var(--text-dim);margin-left:4px;margin-top:2px}
+.ph-badge{margin-left:auto;background:rgba(0,120,212,.18);border:1px solid rgba(0,120,212,.35);
+          border-radius:100px;padding:2px 10px;font-size:11px;color:var(--accent2)}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.tabs{background:#141414;border-bottom:1px solid var(--sep);
+      display:flex;padding:0 20px;overflow-x:auto}
+.tab{background:none;border:none;border-bottom:2px solid transparent;
+     color:var(--text-dim);padding:11px 18px;cursor:pointer;
+     font-family:inherit;font-size:12.5px;white-space:nowrap;
+     transition:.15s;outline:none}
+.tab:hover{color:#fff}
+.tab.on{color:#fff;border-bottom-color:var(--accent)}
+
+/* ── Screen Container ──────────────────────────────────────── */
+.screen{display:none}.screen.on{display:block}
+
+/* ── Desktop Preview Wrapper ───────────────────────────────── */
+.pw{background:#080808;padding:32px;display:flex;justify-content:center;align-items:center;
+    min-height:520px}
+
+/* ── Desktop Window ────────────────────────────────────────── */
+.win{width:880px;height:480px;position:relative;overflow:hidden;border-radius:8px;
+     background:linear-gradient(135deg,var(--win-bg-a) 0%,var(--win-bg-b) 45%,var(--win-bg-c) 75%,var(--win-bg-b) 100%);
+     box-shadow:0 20px 60px rgba(0,0,0,.55)}
+
+/* wallpaper texture */
+.win::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 30% 40%,rgba(255,255,255,.04) 0%,transparent 70%),
+             radial-gradient(ellipse 40% 60% at 75% 25%,rgba(100,160,255,.06) 0%,transparent 70%);
+  pointer-events:none}
+
+/* ── Taskbar ───────────────────────────────────────────────── */
+.taskbar{position:absolute;bottom:0;left:0;right:0;height:44px;
+         background:var(--taskbar);border-top:1px solid rgba(255,255,255,.06);
+         display:flex;align-items:center;justify-content:center;gap:3px;z-index:5}
+.tb-icon{width:28px;height:28px;border-radius:4px;background:rgba(255,255,255,.08);flex-shrink:0}
+.tb-clock{position:absolute;right:12px;text-align:right;font-size:10.5px;
+          color:rgba(255,255,255,.7);line-height:1.4}
+.tb-start{position:absolute;left:50%;transform:translateX(-50%);
+          width:18px;height:18px;background:rgba(255,255,255,.85);border-radius:2px}
+
+/* ── Dock ──────────────────────────────────────────────────── */
+.dock{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);
+      background:var(--plate);border:1px solid var(--plate-border);
+      border-radius:var(--dock-r);padding:8px 12px;
+      display:flex;align-items:center;gap:var(--gap);
+      box-shadow:0 8px 32px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.35);z-index:10}
+
+/* ── Tile ──────────────────────────────────────────────────── */
+.tile{width:48px;height:48px;border-radius:var(--icon-r);
+      display:flex;align-items:center;justify-content:center;
+      font-size:14px;font-weight:700;color:#fff;position:relative;flex-shrink:0}
+.tile-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative}
+.run-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.run-dot.hidden{visibility:hidden}
+
+/* Icon palette */
+.ic-e   {background:#0067b8}
+.ic-vs  {background:#007acc}
+.ic-cmd {background:#012456}
+.ic-f   {background:#ffc83d;color:#1a1a1a}
+.ic-sp  {background:#1db954}
+.ic-dc  {background:#5865f2}
+.ic-fg  {background:#f24e1e}
+.ic-nt  {background:#ffb900;color:#1a1a1a}
+.ic-bk  {background:#3a3a3a;opacity:.6}  /* broken */
+
+/* Broken badge */
+.badge{position:absolute;top:-5px;right:-5px;width:18px;height:18px;
+       border-radius:50%;background:#c42b1c;color:#fff;
+       font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+       border:2px solid rgba(32,32,32,.9)}
+
+/* ── Hover Lift Effect ─────────────────────────────────────── */
+.zoom-L2 .tile{transition:transform .18s ease}
+.zoom-L2 .z-c {transform:translateY(-10px);z-index:20}
+.zoom-L2 .z-n1{transform:translateY(-3px)}
+.zoom-L2 .z-n2{}
+
+/* ── Tooltip ───────────────────────────────────────────────── */
+.tt{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+    color:#fff;font-size:12px;font-weight:400;white-space:nowrap;
+    text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none}
+
+/* ── Context Menu ──────────────────────────────────────────── */
+.cmenu{position:absolute;background:#fff;border:1px solid #d0d0d0;border-radius:6px;
+       box-shadow:0 8px 28px rgba(0,0,0,.22);padding:4px 0;
+       z-index:50;min-width:185px}
+.cm-item{padding:8px 16px;font-size:12.5px;color:#1a1a1a;
+          display:flex;justify-content:space-between;align-items:center;cursor:default}
+.cm-item:first-child{background:#f0f0f0;border-radius:4px 4px 0 0}
+.cm-item.hover{background:#cce4f7}
+.cm-arr{color:#666;font-size:13px;margin-left:8px}
+.cm-sep{height:1px;background:#e0e0e0;margin:4px 0}
+
+/* ── Empty Dock ─────────────────────────────────────────────── */
+.dock-empty{width:360px;min-width:260px}
+.empty-hint{color:var(--text-hint);font-size:12px;padding:0 8px;white-space:nowrap}
+
+/* ── Annotation Row ─────────────────────────────────────────── */
+.ann{background:#121212;border-top:1px solid var(--sep);
+     padding:14px 28px;display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+.ann-item{display:flex;align-items:center;gap:7px;font-size:11.5px;color:rgba(255,255,255,.55)}
+.a-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.a-badge{width:16px;height:16px;border-radius:50%;background:#c42b1c;
+         font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.a-plate{width:14px;height:10px;border-radius:3px;background:rgba(255,255,255,.12);
+         border:1px solid rgba(255,255,255,.22);flex-shrink:0}
+
+/* ── Spec Grid ──────────────────────────────────────────────── */
+.spec-grid{background:#111;padding:20px 28px;
+           display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.spec-card{background:#1c1c1c;border:1px solid var(--sep);border-radius:8px;padding:14px 16px}
+.spec-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;
+            letter-spacing:.06em;margin-bottom:6px}
+.spec-val{font-size:13px;color:#fff;line-height:1.5}
+
+/* ── States Grid ────────────────────────────────────────────── */
+.states-wrap{background:#0a0a0a;padding:28px 32px;display:grid;
+             grid-template-columns:1fr 1fr;gap:24px}
+.state-box{background:#141414;border:1px solid var(--sep);border-radius:10px;overflow:hidden}
+.state-label{padding:10px 16px;font-size:11px;color:var(--text-dim);
+              border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:6px}
+.state-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.state-preview{padding:20px;display:flex;justify-content:center;align-items:flex-end;
+               min-height:130px;
+               background:linear-gradient(135deg,#0c1f3d 0%,#1a3666 50%,#2254a3 100%)}
+
+/* ── Desktop Shortcut Icons ─────────────────────────────────── */
+.di{position:absolute;display:flex;flex-direction:column;align-items:center;gap:5px;
+    cursor:grab;user-select:none;transition:opacity .15s}
+.di:active{cursor:grabbing}
+.di-ico{width:44px;height:44px;border-radius:6px;display:flex;align-items:center;
+        justify-content:center;font-size:12px;font-weight:700;color:#fff;
+        box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.di-lbl{font-size:10px;color:rgba(255,255,255,.88);text-align:center;
+        text-shadow:0 1px 4px rgba(0,0,0,1);padding:1px 5px;border-radius:2px;
+        background:rgba(0,0,0,.45);white-space:nowrap}
+
+/* ── Drag & Drop States ─────────────────────────────────────── */
+.tile-wrap.dragging{opacity:.2;pointer-events:none}
+.dock-ph{width:52px;height:48px;border:2px dashed rgba(0,120,212,.7);
+         border-radius:6px;background:rgba(0,120,212,.1);flex-shrink:0}
+.dock.drag-over{box-shadow:0 0 0 2px var(--accent),0 8px 32px rgba(0,0,0,.5)!important}
+
+/* ── Drag hint text ─────────────────────────────────────────── */
+.drag-hint{position:absolute;font-size:10px;color:rgba(255,255,255,.28);
+           pointer-events:none;white-space:nowrap}
+
+/* ══════════════════════════════════════════════════════════════
+   POSITIONS SCREEN
+══════════════════════════════════════════════════════════════ */
+.pos-grid{background:#090909;padding:24px;display:grid;
+          grid-template-columns:1fr 1fr;gap:20px}
+.pos-card{background:#141414;border:1px solid var(--sep);border-radius:10px;overflow:hidden}
+.pos-card-hd{padding:11px 16px;border-bottom:1px solid var(--sep);
+             display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;
+             color:var(--text)}
+.pos-hl{font-size:10px;color:var(--accent2);
+        background:rgba(0,120,212,.14);border:1px solid rgba(0,120,212,.28);
+        border-radius:100px;padding:1px 8px;flex-shrink:0}
+.pos-tag{margin-left:auto;font-size:10.5px;color:var(--text-hint)}
+.pos-preview{position:relative;overflow:hidden;height:220px;
+             background:linear-gradient(135deg,var(--win-bg-a) 0%,var(--win-bg-b) 55%,var(--win-bg-c) 100%)}
+.pos-preview::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 35% 40%,rgba(255,255,255,.04) 0%,transparent 70%);
+  pointer-events:none}
+.pos-spec{padding:9px 16px;font-size:10.5px;color:var(--text-dim);
+          border-top:1px solid var(--sep);font-family:Consolas,'Courier New',monospace;line-height:1.85}
+
+/* ── Mini taskbar inside pos-preview ── */
+.mini-tb{position:absolute;bottom:0;left:0;right:0;height:36px;
+         background:var(--taskbar);border-top:1px solid rgba(255,255,255,.05);
+         display:flex;align-items:center;justify-content:center;gap:3px;z-index:5}
+.mini-tb-ico{width:22px;height:22px;border-radius:4px;background:rgba(255,255,255,.07)}
+.mini-tb-start{position:absolute;left:50%;transform:translateX(-50%);
+               width:14px;height:14px;background:rgba(255,255,255,.8);border-radius:2px}
+.mini-tb-clock{position:absolute;right:10px;font-size:9px;
+               color:rgba(255,255,255,.5);line-height:1.3;text-align:right}
+
+/* ── Mini dock (base) ── */
+.mini-dock{position:absolute;background:var(--plate);border:1px solid var(--plate-border);
+           border-radius:var(--dock-r);display:flex;align-items:center;
+           box-shadow:0 6px 20px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.35);z-index:10;
+           gap:6px;padding:6px 10px}
+.mini-tile{width:34px;height:34px;border-radius:5px;flex-shrink:0;
+           display:flex;align-items:center;justify-content:center;
+           font-size:11px;font-weight:700;color:#fff}
+.mini-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.mini-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.mini-dot.h{visibility:hidden}
+
+/* ── Horizontal placements ── */
+.mini-dock.pos-b{bottom:44px;left:50%;transform:translateX(-50%)}
+.mini-dock.pos-t{top:10px;left:50%;transform:translateX(-50%)}
+
+/* ── Vertical placements (Left / Right) ── */
+.mini-dock.pos-l,
+.mini-dock.pos-r{flex-direction:column;padding:8px 6px;gap:4px}
+/* smaller tiles so 5 icons fit in available height */
+.mini-dock.pos-l .mini-tile,
+.mini-dock.pos-r .mini-tile{width:26px;height:26px;font-size:9px}
+.mini-dock.pos-l{left:10px;top:6px}
+.mini-dock.pos-r{right:10px;left:auto;top:6px}
+/* running dot faces inward (toward screen interior) */
+.mini-dock.pos-l .mini-wrap{flex-direction:row;gap:3px}
+.mini-dock.pos-r .mini-wrap{flex-direction:row-reverse;gap:3px}
+
+/* edge guide line */
+.edge-guide{position:absolute;background:rgba(0,120,212,.22);z-index:2;pointer-events:none}
+.edge-guide.top   {top:0;left:0;right:0;height:2px}
+.edge-guide.bottom{bottom:36px;left:0;right:0;height:2px}
+.edge-guide.left  {top:0;bottom:0;left:0;width:2px}
+.edge-guide.right {top:0;bottom:0;right:0;width:2px}
+.edge-label{position:absolute;font-size:9px;color:rgba(0,162,255,.7);
+            font-family:Consolas,monospace;z-index:3;pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<div class="ph">
+  <div class="ph-logo">D</div>
+  <div>
+    <div class="ph-title">DockXI</div>
+    <div class="ph-sub">Floating Dock for Windows</div>
+  </div>
+  <div class="ph-badge">UI Mockups v1 · WPF · .NET 8</div>
+</div>
+
+<!-- ── Tabs ─────────────────────────────────────────────────── -->
+<div class="tabs">
+  <button class="tab on" onclick="show(&#39;default&#39;,this)">Default State</button>
+  <button class="tab" onclick="show(&#39;hover&#39;,this)">Hover &amp; Zoom</button>
+  <button class="tab" onclick="show(&#39;menu&#39;,this)">Context Menu</button>
+  <button class="tab" onclick="show(&#39;empty&#39;,this)">Empty State</button>
+  <button class="tab" onclick="show(&#39;broken&#39;,this)">Broken Target</button>
+  <button class="tab" onclick="show(&#39;all&#39;,this)">All States</button>
+  <button class="tab" onclick="show(&#39;drag&#39;,this)">Drag &amp; Pin ✦</button>
+  <button class="tab" onclick="show(&#39;pos&#39;,this)">Positions ✦</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 1 — DEFAULT STATE
+════════════════════════════════════════════════════════════ -->
+<div class="screen on" id="s-default">
+  <div class="pw">
+    <div class="win">
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+      <div class="dock">
+        <div class="tile-wrap"><div class="tile ic-e">e</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-vs">VS</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-cmd">&gt;_</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-f">📁</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-sp">♪</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-dc">D</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-fg">F</div><div class="run-dot hidden"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><div class="a-dot"></div>Running indicator — accent dot ใต้ icon (Edge, Terminal, Spotify)</div>
+    <div class="ann-item"><div class="a-plate"></div>Plate: semi-transparent, CornerRadius=10, DWM blur-behind</div>
+    <div class="ann-item"><span style="font-size:10px;opacity:.5;border:1px solid rgba(255,255,255,.2);padding:1px 6px;border-radius:3px">48dp</span>Icon size default 48dp, spacing 8dp</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Plate</div><div class="spec-val">rgba(32,32,32,0.91) · blur-behind · CornerRadius 10px · border rgba(255,255,255,0.10)</div></div>
+    <div class="spec-card"><div class="spec-label">Icon tile</div><div class="spec-val">48×48dp default · CornerRadius 6px · padding 4dp inside</div></div>
+    <div class="spec-card"><div class="spec-label">Running dot</div><div class="spec-val">5×5dp ellipse · accent color #0078D4 · 5dp below tile</div></div>
+    <div class="spec-card"><div class="spec-label">Position</div><div class="spec-val">Bottom edge (default) · 16dp above taskbar · centered horizontally</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 2 — HOVER & ZOOM
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-hover">
+  <div class="pw">
+    <div class="win">
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+      <div class="dock zoom-L2">
+        <div class="tile-wrap"><div class="tile ic-e z-n2">e</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-vs z-n2">VS</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-cmd z-n1">&gt;_</div><div class="run-dot"></div></div>
+        <div class="tile-wrap" style="position:relative">
+          <div class="tile ic-f z-c">📁<div class="tt">Projects</div></div>
+          <div class="run-dot"></div>
+        </div>
+        <div class="tile-wrap"><div class="tile ic-sp z-n1">♪</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-dc z-n2">D</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-fg z-n2">F</div><div class="run-dot hidden"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><div class="a-dot" style="background:#ffc83d"></div>Hovered icon: translateY −10px (lifts up, no scale change)</div>
+    <div class="ann-item"><div class="a-dot" style="background:rgba(0,120,212,.4)"></div>Near neighbours: slight lift −3px (optional, subtle)</div>
+    <div class="ann-item"><span style="font-size:11px;color:#fff;opacity:.7">Aa</span>Tooltip: plain white TextBlock, no background box, appears above lifted tile</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Hover effect</div><div class="spec-val">TranslateTransform.Y = −10px on PointerEntered → back to 0 on PointerExited</div></div>
+    <div class="spec-card"><div class="spec-label">Animation</div><div class="spec-val">DoubleAnimation 120ms ease-out · no scale change</div></div>
+    <div class="spec-card"><div class="spec-label">Implementation</div><div class="spec-val">WPF Storyboard + TranslateTransform per tile (UI thread)</div></div>
+    <div class="spec-card"><div class="spec-label">Disabled when</div><div class="spec-val">UISettings.AnimationsEnabled = false → instant translateY, no animation</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 3 — CONTEXT MENU
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-menu">
+  <div class="pw">
+    <div class="win">
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+      <!-- Context menu positioned above the dock -->
+      <div class="cmenu" style="bottom:132px;left:50%;transform:translateX(-60px)">
+        <div class="cm-item hover">Add file...</div>
+        <div class="cm-item">Add folder...</div>
+        <div class="cm-item">Add URL...</div>
+        <div class="cm-sep"></div>
+        <div class="cm-item">Position <span class="cm-arr">›</span></div>
+        <div class="cm-item">Auto-hide</div>
+        <div class="cm-item">Display <span class="cm-arr">›</span></div>
+        <div class="cm-sep"></div>
+        <div class="cm-item">Quit DockXI</div>
+      </div>
+      <div class="dock">
+        <div class="tile-wrap"><div class="tile ic-e">e</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-vs">VS</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-cmd">&gt;_</div><div class="run-dot"></div></div>
+        <div class="tile-wrap" style="outline:2px solid rgba(0,120,212,.6);border-radius:6px">
+          <div class="tile ic-f">📁</div><div class="run-dot hidden"></div>
+        </div>
+        <div class="tile-wrap"><div class="tile ic-sp">♪</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-dc">D</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap"><div class="tile ic-fg">F</div><div class="run-dot hidden"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><span style="width:12px;height:12px;background:#fff;border:1px solid #ccc;border-radius:2px;display:inline-block"></span>Menu: white background #FFFFFF · border #D0D0D0 · shadow</div>
+    <div class="ann-item"><div style="width:16px;height:1px;background:#e0e0e0;flex-shrink:0"></div>Separator: #E0E0E0 horizontal line</div>
+    <div class="ann-item"><div style="width:12px;height:12px;background:#f0f0f0;border-radius:2px;flex-shrink:0"></div>Hover: #F0F0F0; active hover: #CCE4F7</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Items</div><div class="spec-val">Add file · Add folder · Add URL · Position › · Auto-hide · Display › · Quit DockXI</div></div>
+    <div class="spec-card"><div class="spec-label">Styling</div><div class="spec-val">Background #FFFFFF · Border #D0D0D0 · CornerRadius 6px · drop shadow 8px 24px</div></div>
+    <div class="spec-card"><div class="spec-label">Typography</div><div class="spec-val">Segoe UI 12.5px · color #1A1A1A · padding 8px 16px per item</div></div>
+    <div class="spec-card"><div class="spec-label">Trigger</div><div class="spec-val">Right-click on dock plate or on icon tile</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 4 — EMPTY STATE (FIRST RUN)
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-empty">
+  <div class="pw">
+    <div class="win">
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+      <div class="dock dock-empty" style="justify-content:center">
+        <span class="empty-hint">Drag a shortcut here, or right-click to add</span>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><div class="a-dot" style="background:rgba(255,255,255,.3)"></div>Placeholder text: rgba(255,255,255,0.32) — Segoe UI 12px</div>
+    <div class="ann-item"><div class="a-plate"></div>Dock minimum width: 260dp; expands as icons are added</div>
+    <div class="ann-item"><span style="font-size:10px;color:#aaa">first run</span>Hint disappears after first successful pin</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Trigger</div><div class="spec-val">AppSettings.HasCompletedFirstRun = false AND PinnedItems.Count == 0</div></div>
+    <div class="spec-card"><div class="spec-label">Dismiss</div><div class="spec-val">ItemAdded event → IsFirstRun = false → placeholder hidden → save HasCompletedFirstRun = true</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 5 — BROKEN TARGET
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-broken">
+  <div class="pw">
+    <div class="win">
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+      <div class="dock">
+        <div class="tile-wrap"><div class="tile ic-e">e</div><div class="run-dot"></div></div>
+        <div class="tile-wrap"><div class="tile ic-vs">VS</div><div class="run-dot hidden"></div></div>
+        <!-- Broken icon -->
+        <div class="tile-wrap">
+          <div class="tile ic-bk" style="position:relative">
+            <span style="font-size:11px;color:rgba(255,255,255,.4)">App</span>
+            <div class="badge">!</div>
+          </div>
+          <div class="run-dot hidden"></div>
+        </div>
+        <div class="tile-wrap"><div class="tile ic-f">📁</div><div class="run-dot hidden"></div></div>
+        <!-- Bounce icon (click animation) -->
+        <div class="tile-wrap">
+          <div class="tile ic-sp" style="transform:translateY(-10px);transition:none">♪</div>
+          <div class="run-dot"></div>
+        </div>
+        <div class="tile-wrap"><div class="tile ic-dc">D</div><div class="run-dot hidden"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><div class="a-badge">!</div>Broken badge: 18×18dp #C42B1C circle · "!" · top-right of tile</div>
+    <div class="ann-item"><div class="a-dot" style="background:#ffd47a"></div>Bounce (Spotify): translateY −10px → กลับใน 140ms (click feedback)</div>
+    <div class="ann-item" style="margin-left:auto;opacity:.6;font-size:11px">คลิก broken icon → tooltip "File not found: [path]"</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Broken state</div><div class="spec-val">IsTargetValid() = false → overlay badge · AutomationName "[Name] — File not found"</div></div>
+    <div class="spec-card"><div class="spec-label">Persistence</div><div class="spec-val">Broken items stay in dock (BRL-001) — NOT auto-removed</div></div>
+    <div class="spec-card"><div class="spec-label">Launch bounce</div><div class="spec-val">TranslateTransform.Y = −10px on click → DoubleAnimation back to 0 in 140ms</div></div>
+    <div class="spec-card"><div class="spec-label">Opacity</div><div class="spec-val">Broken tile: Opacity 0.55 to visually distinguish from healthy tiles</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 6 — ALL STATES OVERVIEW
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-all">
+  <div class="states-wrap">
+
+    <!-- Default -->
+    <div class="state-box">
+      <div class="state-label">Default (at rest)</div>
+      <div class="state-preview" style="align-items:flex-end;padding-bottom:16px">
+        <div class="dock" style="position:relative;bottom:auto;left:auto;transform:none;scale:.85">
+          <div class="tile-wrap"><div class="tile ic-e" style="width:40px;height:40px">e</div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-vs" style="width:40px;height:40px">VS</div><div class="run-dot hidden"></div></div>
+          <div class="tile-wrap"><div class="tile ic-f" style="width:40px;height:40px">📁</div><div class="run-dot hidden"></div></div>
+          <div class="tile-wrap"><div class="tile ic-sp" style="width:40px;height:40px">♪</div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-dc" style="width:40px;height:40px">D</div><div class="run-dot hidden"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hover Zoom -->
+    <div class="state-box">
+      <div class="state-label">Hover lift (icon rises on cursor enter)</div>
+      <div class="state-preview zoom-L2" style="align-items:flex-end;padding-bottom:16px">
+        <div class="dock" style="position:relative;bottom:auto;left:auto;transform:none;scale:.85">
+          <div class="tile-wrap"><div class="tile ic-e z-n2" style="width:40px;height:40px">e</div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-vs z-n1" style="width:40px;height:40px">VS</div><div class="run-dot hidden"></div></div>
+          <div class="tile-wrap" style="position:relative"><div class="tile ic-f z-c" style="width:40px;height:40px">📁<div class="tt" style="font-size:10px">Projects</div></div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-sp z-n1" style="width:40px;height:40px">♪</div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-dc z-n2" style="width:40px;height:40px">D</div><div class="run-dot hidden"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context menu -->
+    <div class="state-box">
+      <div class="state-label">Context menu (right-click)</div>
+      <div class="state-preview" style="justify-content:center;align-items:center">
+        <div class="cmenu" style="position:relative;box-shadow:0 4px 16px rgba(0,0,0,.35)">
+          <div class="cm-item hover">Add file...</div>
+          <div class="cm-item">Add folder...</div>
+          <div class="cm-item">Add URL...</div>
+          <div class="cm-sep"></div>
+          <div class="cm-item">Position <span class="cm-arr">›</span></div>
+          <div class="cm-item">Auto-hide</div>
+          <div class="cm-item">Display <span class="cm-arr">›</span></div>
+          <div class="cm-sep"></div>
+          <div class="cm-item">Quit DockXI</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="state-box">
+      <div class="state-label">Empty state (first run)</div>
+      <div class="state-preview" style="align-items:flex-end;padding-bottom:16px">
+        <div class="dock dock-empty" style="position:relative;bottom:auto;left:auto;transform:none;justify-content:center;scale:.85">
+          <span class="empty-hint" style="font-size:11px">Drag a shortcut here, or right-click to add</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Broken target -->
+    <div class="state-box">
+      <div class="state-label">Broken target badge</div>
+      <div class="state-preview" style="align-items:flex-end;padding-bottom:16px">
+        <div class="dock" style="position:relative;bottom:auto;left:auto;transform:none;scale:.85">
+          <div class="tile-wrap"><div class="tile ic-e" style="width:40px;height:40px">e</div><div class="run-dot"></div></div>
+          <div class="tile-wrap"><div class="tile ic-bk" style="width:40px;height:40px;position:relative"><span style="font-size:10px;color:rgba(255,255,255,.4)">App</span><div class="badge" style="width:15px;height:15px;font-size:9px">!</div></div><div class="run-dot hidden"></div></div>
+          <div class="tile-wrap"><div class="tile ic-f" style="width:40px;height:40px">📁</div><div class="run-dot hidden"></div></div>
+          <div class="tile-wrap"><div class="tile ic-sp" style="width:40px;height:40px">♪</div><div class="run-dot"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-hide -->
+    <div class="state-box">
+      <div class="state-label">Auto-hide (hidden + reveal zone)</div>
+      <div class="state-preview" style="align-items:flex-end;padding-bottom:0;flex-direction:column;justify-content:flex-end">
+        <div style="font-size:11px;color:rgba(255,255,255,.3);margin-bottom:auto;align-self:center">
+          ← cursor near bottom edge →
+        </div>
+        <div style="width:100%;height:3px;background:rgba(0,120,212,.5);border-radius:2px 2px 0 0;
+                    box-shadow:0 0 8px rgba(0,120,212,.4)" title="1-px reveal zone window"></div>
+        <div style="width:100%;padding:4px 0;background:rgba(18,18,18,.97);
+                    font-size:10px;color:rgba(255,255,255,.3);text-align:center">
+          ▲ reveal zone (1px) · dock hidden off-screen ▲
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /states-wrap -->
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 7 — DRAG & PIN (interactive)
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-drag">
+  <div class="pw">
+    <div class="win" id="drag-win">
+
+      <!-- Desktop shortcuts (draggable) -->
+      <div class="di" draggable="true" style="top:36px;left:36px" data-abbr="Ch" data-color="#ea4335" data-label="Chrome">
+        <div class="di-ico" style="background:#ea4335">Ch</div>
+        <div class="di-lbl">Chrome</div>
+      </div>
+      <div class="di" draggable="true" style="top:36px;left:116px" data-abbr="NT" data-color="#ffb900" data-label="Notepad">
+        <div class="di-ico" style="background:#ffb900;color:#1a1a1a">NT</div>
+        <div class="di-lbl">Notepad</div>
+      </div>
+      <div class="di" draggable="true" style="top:36px;left:196px" data-abbr="Ph" data-color="#9b59b6" data-label="Photos">
+        <div class="di-ico" style="background:#9b59b6">Ph</div>
+        <div class="di-lbl">Photos</div>
+      </div>
+
+      <!-- Hint: drag down to dock -->
+      <div class="drag-hint" style="top:118px;left:42px">drag to dock ↓</div>
+      <!-- Hint: reorder -->
+      <div class="drag-hint" style="bottom:72px;left:50%;transform:translateX(-50%)">← drag icons to reorder →</div>
+
+      <!-- Taskbar -->
+      <div class="taskbar">
+        <div class="tb-start"></div>
+        <div class="tb-icon"></div><div class="tb-icon"></div>
+        <div class="tb-icon"></div>
+        <div class="tb-clock">21:45<br>07/06/2026</div>
+      </div>
+
+      <!-- Live interactive dock -->
+      <div class="dock" id="live-dock">
+        <div class="tile-wrap" draggable="true"><div class="tile ic-e">e</div><div class="run-dot"></div></div>
+        <div class="tile-wrap" draggable="true"><div class="tile ic-vs">VS</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap" draggable="true"><div class="tile ic-cmd">&gt;_</div><div class="run-dot"></div></div>
+        <div class="tile-wrap" draggable="true"><div class="tile ic-f">📁</div><div class="run-dot hidden"></div></div>
+        <div class="tile-wrap" draggable="true"><div class="tile ic-sp">♪</div><div class="run-dot"></div></div>
+        <div class="tile-wrap" draggable="true"><div class="tile ic-dc">D</div><div class="run-dot hidden"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ann">
+    <div class="ann-item"><div class="a-dot" style="background:#ffc83d"></div>
+      Reorder: grab any dock icon, drag left/right — gap shows insertion point, drop to commit</div>
+    <div class="ann-item"><div class="a-dot"></div>
+      Pin: drag any desktop shortcut onto the dock — drops at exact cursor position</div>
+    <div class="ann-item" style="margin-left:auto;font-size:11px;color:rgba(0,120,212,.7);font-weight:600">
+      ✦ Interactive — try dragging</div>
+  </div>
+  <div class="spec-grid">
+    <div class="spec-card"><div class="spec-label">Reorder trigger</div>
+      <div class="spec-val">PointerPressed hold &gt;150ms on tile → drag mode · ghost at origin · gap between tiles</div></div>
+    <div class="spec-card"><div class="spec-label">Drop feedback</div>
+      <div class="spec-val">Insertion gap animates between tiles · drop → WPF Storyboard settles icons to final positions</div></div>
+    <div class="spec-card"><div class="spec-label">Pin from Explorer</div>
+      <div class="spec-val">Drop .exe / .lnk / folder from File Explorer onto dock · max 50 items (BRL-006)</div></div>
+    <div class="spec-card"><div class="spec-label">Cancel reorder</div>
+      <div class="spec-val">Drag outside dock &gt;80px or press Escape → icon snaps back to original position</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 8 — DOCK POSITIONS
+════════════════════════════════════════════════════════════ -->
+<div class="screen" id="s-pos">
+
+  <!-- 2×2 grid of mini desktop previews -->
+  <div class="pos-grid">
+
+    <!-- ── Bottom (default) ─────────────────────────────── -->
+    <div class="pos-card">
+      <div class="pos-card-hd">
+        ↓ Bottom
+        <span class="pos-hl">Default</span>
+        <span class="pos-tag">Horizontal · Above taskbar</span>
+      </div>
+      <div class="pos-preview">
+        <!-- fake background windows -->
+        <div style="position:absolute;top:14px;left:16px;width:165px;height:90px;border-radius:6px;background:rgba(14,26,52,.65)"></div>
+        <div style="position:absolute;top:18px;right:18px;width:175px;height:80px;border-radius:6px;background:rgba(12,18,38,.6)"></div>
+        <!-- edge guide -->
+        <div class="edge-guide bottom"></div>
+        <span class="edge-label" style="bottom:40px;left:8px">workArea.Bottom</span>
+        <!-- mini taskbar -->
+        <div class="mini-tb">
+          <div class="mini-tb-start"></div>
+          <div class="mini-tb-ico"></div><div class="mini-tb-ico"></div>
+          <div class="mini-tb-clock">21:45<br>08/06</div>
+        </div>
+        <!-- dock -->
+        <div class="mini-dock pos-b">
+          <div class="mini-wrap"><div class="mini-tile" style="background:#0067b8">e</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#007acc">VS</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#012456">&gt;_</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#ffc83d;color:#1a1a1a">📁</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#1db954">♪</div><div class="mini-dot"></div></div>
+        </div>
+      </div>
+      <div class="pos-spec">
+        x = workArea.Left + (workArea.Width − dockW) / 2<br>
+        y = workArea.Bottom − dockH − EdgeMarginDp<br>
+        dockH = ThicknessTopBottomDp = 74 dp
+      </div>
+    </div>
+
+    <!-- ── Top ──────────────────────────────────────────── -->
+    <div class="pos-card">
+      <div class="pos-card-hd">
+        ↑ Top
+        <span class="pos-tag">Horizontal · Below top edge</span>
+      </div>
+      <div class="pos-preview">
+        <div style="position:absolute;bottom:50px;left:16px;width:170px;height:95px;border-radius:6px;background:rgba(14,26,52,.65)"></div>
+        <div style="position:absolute;bottom:44px;right:18px;width:160px;height:85px;border-radius:6px;background:rgba(12,18,38,.6)"></div>
+        <div class="edge-guide top"></div>
+        <span class="edge-label" style="top:6px;left:8px">workArea.Top</span>
+        <div class="mini-tb">
+          <div class="mini-tb-start"></div>
+          <div class="mini-tb-ico"></div><div class="mini-tb-ico"></div>
+          <div class="mini-tb-clock">21:45<br>08/06</div>
+        </div>
+        <div class="mini-dock pos-t">
+          <div class="mini-wrap"><div class="mini-tile" style="background:#0067b8">e</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#007acc">VS</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#012456">&gt;_</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#ffc83d;color:#1a1a1a">📁</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#1db954">♪</div><div class="mini-dot"></div></div>
+        </div>
+      </div>
+      <div class="pos-spec">
+        x = workArea.Left + (workArea.Width − dockW) / 2<br>
+        y = workArea.Top + EdgeMarginDp<br>
+        dockH = ThicknessTopBottomDp = 74 dp
+      </div>
+    </div>
+
+    <!-- ── Left ─────────────────────────────────────────── -->
+    <div class="pos-card">
+      <div class="pos-card-hd">
+        ← Left
+        <span class="pos-tag">Vertical · Running dot → inward</span>
+      </div>
+      <div class="pos-preview">
+        <div style="position:absolute;top:14px;left:64px;width:200px;height:90px;border-radius:6px;background:rgba(14,26,52,.65)"></div>
+        <div style="position:absolute;bottom:50px;right:16px;width:170px;height:80px;border-radius:6px;background:rgba(12,18,38,.6)"></div>
+        <div class="edge-guide left"></div>
+        <span class="edge-label" style="top:6px;left:6px;writing-mode:vertical-rl;transform:rotate(180deg)">workArea.Left</span>
+        <div class="mini-tb">
+          <div class="mini-tb-start"></div>
+          <div class="mini-tb-ico"></div><div class="mini-tb-ico"></div>
+          <div class="mini-tb-clock">21:45<br>08/06</div>
+        </div>
+        <div class="mini-dock pos-l">
+          <div class="mini-wrap"><div class="mini-tile" style="background:#0067b8">e</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#007acc">VS</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#012456">&gt;_</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#ffc83d;color:#1a1a1a">📁</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#1db954">♪</div><div class="mini-dot"></div></div>
+        </div>
+      </div>
+      <div class="pos-spec">
+        x = workArea.Left + EdgeMarginDp<br>
+        y = workArea.Top + (workArea.Height − dockH) / 2<br>
+        dockW = ThicknessLeftRightDp = 88 dp
+      </div>
+    </div>
+
+    <!-- ── Right ────────────────────────────────────────── -->
+    <div class="pos-card">
+      <div class="pos-card-hd">
+        → Right
+        <span class="pos-tag">Vertical · Running dot ← inward</span>
+      </div>
+      <div class="pos-preview">
+        <div style="position:absolute;top:14px;left:16px;width:190px;height:95px;border-radius:6px;background:rgba(14,26,52,.65)"></div>
+        <div style="position:absolute;bottom:50px;right:64px;width:165px;height:80px;border-radius:6px;background:rgba(12,18,38,.6)"></div>
+        <div class="edge-guide right"></div>
+        <span class="edge-label" style="top:6px;right:6px;writing-mode:vertical-rl">workArea.Right</span>
+        <div class="mini-tb">
+          <div class="mini-tb-start"></div>
+          <div class="mini-tb-ico"></div><div class="mini-tb-ico"></div>
+          <div class="mini-tb-clock">21:45<br>08/06</div>
+        </div>
+        <div class="mini-dock pos-r">
+          <div class="mini-wrap"><div class="mini-tile" style="background:#0067b8">e</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#007acc">VS</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#012456">&gt;_</div><div class="mini-dot"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#ffc83d;color:#1a1a1a">📁</div><div class="mini-dot h"></div></div>
+          <div class="mini-wrap"><div class="mini-tile" style="background:#1db954">♪</div><div class="mini-dot"></div></div>
+        </div>
+      </div>
+      <div class="pos-spec">
+        x = workArea.Right − dockW − EdgeMarginDp<br>
+        y = workArea.Top + (workArea.Height − dockH) / 2<br>
+        dockW = ThicknessLeftRightDp = 88 dp
+      </div>
+    </div>
+
+  </div><!-- /pos-grid -->
+
+  <!-- Spec constants from DockPositionService -->
+  <div class="spec-grid" style="border-top:1px solid var(--sep)">
+    <div class="spec-card">
+      <div class="spec-label">Bottom / Top — dock thickness</div>
+      <div class="spec-val">ThicknessTopBottomDp = 74 dp · PaddingTopBottomDp = 24 dp</div>
+    </div>
+    <div class="spec-card">
+      <div class="spec-label">Left / Right — dock thickness</div>
+      <div class="spec-val">ThicknessLeftRightDp = 88 dp · PaddingLeftRightDp = 20 dp</div>
+    </div>
+    <div class="spec-card">
+      <div class="spec-label">Edge margin (all edges)</div>
+      <div class="spec-val">EdgeMarginDp = 24 dp · gap between dock border and screen/workArea edge</div>
+    </div>
+    <div class="spec-card">
+      <div class="spec-label">Minimum pill length</div>
+      <div class="spec-val">MinContentLengthDp = 200 dp · empty dock horizontal minimum width</div>
+    </div>
+    <div class="spec-card">
+      <div class="spec-label">Layout direction</div>
+      <div class="spec-val">Bottom / Top → StackPanel Horizontal · Left / Right → StackPanel Vertical</div>
+    </div>
+    <div class="spec-card">
+      <div class="spec-label">Running dot placement</div>
+      <div class="spec-val">Bottom / Top → dot below icon · Left / Right → dot on interior-facing side</div>
+    </div>
+  </div>
+
+</div><!-- /s-pos -->
+
+<script>
+/* ── Tab switching ─────────────────────────────────────────── */
+function show(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  document.getElementById('s-' + id).classList.add('on');
+  btn.classList.add('on');
+}
+
+/* ── Drag & Pin interactive demo ───────────────────────────── */
+(function () {
+  var src = null; // { type:'tile'|'di', el, abbr?, color? }
+
+  function getPh(dock) {
+    return dock.querySelector('.dock-ph');
+  }
+
+  function upsertPh(dock, cx) {
+    var ph = getPh(dock);
+    if (!ph) {
+      ph = document.createElement('div');
+      ph.className = 'dock-ph';
+    }
+    var after = getAfterEl(dock, cx);
+    if (after) dock.insertBefore(ph, after);
+    else dock.appendChild(ph);
+  }
+
+  function getAfterEl(dock, cx) {
+    var items = Array.from(dock.querySelectorAll('.tile-wrap:not(.dragging)'));
+    var best = { d: -Infinity, el: null };
+    items.forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      var d = cx - r.left - r.width / 2;
+      if (d < 0 && d > best.d) best = { d: d, el: el };
+    });
+    return best.el;
+  }
+
+  function cleanDock(dock) {
+    dock.classList.remove('drag-over');
+    Array.from(dock.querySelectorAll('.dock-ph')).forEach(function (p) { p.remove(); });
+  }
+
+  function makeTileWrap(abbr, color) {
+    var tw = document.createElement('div');
+    tw.className = 'tile-wrap';
+    var t = document.createElement('div');
+    t.className = 'tile';
+    t.style.cssText = 'background:' + color + ';border-radius:6px';
+    if (color === '#ffb900') t.style.color = '#1a1a1a';
+    t.textContent = abbr;
+    var dot = document.createElement('div');
+    dot.className = 'run-dot hidden';
+    tw.appendChild(t); tw.appendChild(dot);
+    return tw;
+  }
+
+  function enableTile(tw, dock) {
+    tw.setAttribute('draggable', 'true');
+    tw.addEventListener('dragstart', function (e) {
+      var self = this;
+      requestAnimationFrame(function () { self.classList.add('dragging'); });
+      src = { type: 'tile', el: self };
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    tw.addEventListener('dragend', function () {
+      this.classList.remove('dragging');
+      if (src && src.el === this) { cleanDock(dock); src = null; }
+    });
+  }
+
+  function init() {
+    var dock = document.getElementById('live-dock');
+    if (!dock) return;
+
+    /* make existing dock tiles draggable */
+    Array.from(dock.querySelectorAll('.tile-wrap')).forEach(function (tw) {
+      enableTile(tw, dock);
+    });
+
+    /* make desktop icons draggable */
+    Array.from(document.querySelectorAll('#s-drag .di')).forEach(function (di) {
+      di.addEventListener('dragstart', function (e) {
+        var self = this;
+        requestAnimationFrame(function () { self.style.opacity = '.2'; });
+        src = { type: 'di', el: self,
+                abbr: self.dataset.abbr, color: self.dataset.color };
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      di.addEventListener('dragend', function () {
+        this.style.opacity = '';
+        if (src && src.type === 'di') { cleanDock(dock); src = null; }
+      });
+    });
+
+    /* dock accepts drops */
+    dock.addEventListener('dragover', function (e) {
+      if (!src) return;
+      e.preventDefault();
+      this.classList.add('drag-over');
+      upsertPh(this, e.clientX);
+    });
+
+    dock.addEventListener('dragleave', function (e) {
+      if (!this.contains(e.relatedTarget)) cleanDock(this);
+    });
+
+    dock.addEventListener('drop', function (e) {
+      e.preventDefault();
+      var ph = getPh(this);
+      if (src && src.type === 'tile') {
+        src.el.classList.remove('dragging');
+        if (ph) this.insertBefore(src.el, ph);
+      } else if (src && src.type === 'di') {
+        var tw = makeTileWrap(src.abbr, src.color);
+        if (ph) this.insertBefore(tw, ph);
+        else this.appendChild(tw);
+        enableTile(tw, this);
+        src.el.remove();
+      }
+      cleanDock(this);
+      src = null;
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+}());
+</script>
+
+
+</body></html>
