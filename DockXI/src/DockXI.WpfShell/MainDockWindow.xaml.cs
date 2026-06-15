@@ -19,8 +19,60 @@ namespace DockXI.WpfShell;
 
 public partial class MainDockWindow : Window, INotifyPropertyChanged
 {
-    private const double DropGapPx = 28.0;
-    private const int    GapAnimMs = 180;
+    private const double DropGapPx = 10.0;
+    private const int    GapAnimMs = 260;
+
+    // ------------------------------------------------------------------------
+    // Activity log — writes to <repo>/DockXI/logs/activity.log. Records
+    // meaningful user-facing events (pin, unpin, launch, position change)
+    // for post-mortem troubleshooting. Rotates at 1 MB to avoid unbounded
+    // growth.
+    // ------------------------------------------------------------------------
+    private const long MaxLogBytes = 1_048_576;
+    private static readonly string ActivityLogFile = ResolveActivityLogFile();
+
+    private static string ResolveActivityLogFile()
+    {
+        var dir = System.IO.Path.GetDirectoryName(typeof(MainDockWindow).Assembly.Location);
+        while (!string.IsNullOrEmpty(dir))
+        {
+            if (System.IO.File.Exists(System.IO.Path.Combine(dir, "DockXI.sln")))
+            {
+                return System.IO.Path.Combine(dir, "logs", "activity.log");
+            }
+            dir = System.IO.Path.GetDirectoryName(dir);
+        }
+        // Fallback: next to the exe so we never write to a random spot.
+        return System.IO.Path.Combine(
+            System.IO.Path.GetDirectoryName(typeof(MainDockWindow).Assembly.Location)!,
+            "activity.log");
+    }
+
+    internal static void LogEvent(string msg)
+    {
+        try
+        {
+            var dir = System.IO.Path.GetDirectoryName(ActivityLogFile);
+            if (dir is not null) { System.IO.Directory.CreateDirectory(dir); }
+            // Rotate: if file exceeds threshold, keep only the tail half so
+            // recent activity stays readable without growing forever.
+            if (System.IO.File.Exists(ActivityLogFile))
+            {
+                var info = new System.IO.FileInfo(ActivityLogFile);
+                if (info.Length > MaxLogBytes)
+                {
+                    var keep = System.IO.File.ReadAllText(ActivityLogFile);
+                    keep = keep[(keep.Length / 2)..];
+                    var newlineIdx = keep.IndexOf('\n');
+                    if (newlineIdx >= 0) { keep = keep[(newlineIdx + 1)..]; }
+                    System.IO.File.WriteAllText(ActivityLogFile, keep);
+                }
+            }
+            System.IO.File.AppendAllText(ActivityLogFile,
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {msg}\n");
+        }
+        catch { /* swallow — logging must never crash the app */ }
+    }
 
     private readonly IPinnedItemRepository _pinnedRepo;
     private readonly ILaunchService        _launchService;
@@ -100,9 +152,14 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         _shortcutResolver = shortcutResolver;
         _dockConfigStore  = dockConfigStore;
 
-        InitializeComponent();
+        // CRITICAL: assign drag/drop handlers BEFORE InitializeComponent so the
+        // XAML binding {Binding Path=DragHandler} evaluates to our subclass,
+        // not null (which makes gong silently fall back to its default handler
+        // — that's why all our Trace overrides never fired).
         DragHandler = new TrackingDragSource(this);
         DropHandler = new GapDropHandler(this);
+
+        InitializeComponent();
 
         foreach (var item in _pinnedRepo.Items)
         {
@@ -122,6 +179,8 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         base.OnSourceInitialized(e);
         var hwnd = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(hwnd)?.AddHook(WndProc_MinMax);
+        HwndSource.FromHwnd(hwnd)?.AddHook(WndProc_DropFiles);
+        DragAcceptFiles(hwnd, true);
 
         // The HWND was already sized to the Win32 minimum (~132×38) before
         // the hook attached. Toggle SizeToContent off→on to force WPF to
@@ -130,10 +189,42 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         var current = SizeToContent;
         SizeToContent = SizeToContent.Manual;
         SizeToContent = current;
+
+        // UIPI bypass — allow drop messages from lower-IL (User) processes
+        // when DockXI runs as Administrator. Without this, dragging files
+        // from Explorer (User IL) to DockXI (Admin IL) is silently blocked
+        // by Windows security and no drop event ever fires.
+        AllowDropFromLowerIntegrityLevel(hwnd);
+    }
+
+    private const uint WM_DROPFILES        = 0x0233;
+    private const uint WM_COPYDATA         = 0x004A;
+    private const uint WM_COPYGLOBALDATA   = 0x0049;
+    private const uint MSGFLT_ALLOW        = 1;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ChangeWindowMessageFilterEx(
+        IntPtr hWnd, uint msg, uint action, IntPtr changeFilterStruct);
+
+    private static void AllowDropFromLowerIntegrityLevel(IntPtr hwnd)
+    {
+        ChangeWindowMessageFilterEx(hwnd, WM_DROPFILES,      MSGFLT_ALLOW, IntPtr.Zero);
+        ChangeWindowMessageFilterEx(hwnd, WM_COPYDATA,       MSGFLT_ALLOW, IntPtr.Zero);
+        ChangeWindowMessageFilterEx(hwnd, WM_COPYGLOBALDATA, MSGFLT_ALLOW, IntPtr.Zero);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        var isAdmin = new System.Security.Principal.WindowsPrincipal(
+            System.Security.Principal.WindowsIdentity.GetCurrent())
+            .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        var asm = Assembly.GetExecutingAssembly();
+        var version = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                      ?? asm.GetName().Version?.ToString() ?? "?";
+        var plus = version.IndexOf('+');
+        if (plus > 0) { version = version[..plus]; }
+        LogEvent($"App started v{version}, position={_dockConfigStore.Current.Position}, admin={isAdmin}, pinned={PinnedItems.Count}");
         var hwnd = new WindowInteropHelper(this).Handle;
         ApplyToolWindowStyles(hwnd);
         ApplyDarkTitleBar(hwnd);
@@ -149,6 +240,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     protected override void OnClosed(EventArgs e)
     {
+        LogEvent("App exiting");
         _pinnedRepo.ItemAdded   -= OnItemAdded;
         _pinnedRepo.ItemRemoved -= OnItemRemoved;
         _launchService.ProcessSnapshotUpdated -= OnProcessSnapshotUpdated;
@@ -169,6 +261,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void OnItemAdded(object? sender, PinnedItemEventArgs e)
     {
+        LogEvent($"Pin: {e.Item.DisplayName} → {e.Item.TargetPath}");
         Dispatcher.Invoke(() =>
         {
             var vm = CreateViewModel(e.Item);
@@ -178,10 +271,51 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void OnItemRemoved(object? sender, PinnedItemEventArgs e)
     {
+        LogEvent($"Unpin: {e.Item.DisplayName}");
         Dispatcher.Invoke(() =>
         {
             var vm = PinnedItems.FirstOrDefault(v => v.Id == e.Item.Id);
-            if (vm is not null) { PinnedItems.Remove(vm); }
+            if (vm is null) { return; }
+
+            // Bounce-out: scale 1 → 0 with smooth ease, fade opacity in parallel,
+            // then actually remove from the collection. If we can't find the
+            // container (virtualization edge-case), remove immediately.
+            var scale = GetTileScale(vm);
+            if (scale is null)
+            {
+                PinnedItems.Remove(vm);
+                return;
+            }
+
+            // Slower (260ms) + scale to 0.6 (not 0) so the icon shrinks subtly
+            // while fading rather than snapping out of existence.
+            var dur = TimeSpan.FromMilliseconds(260);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+            var scaleAnim = new DoubleAnimation
+            {
+                To = 0.6,
+                Duration = dur,
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd,
+            };
+            scaleAnim.Completed += (_, _) => PinnedItems.Remove(vm);
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+
+            // Fade opacity on the container so the icon dissolves while shrinking.
+            var idx = PinnedItems.IndexOf(vm);
+            if (TilesHost.ItemContainerGenerator.ContainerFromIndex(idx) is ContentPresenter cp
+                && FindDescendant<Grid>(cp, "TileSlot") is { } slot)
+            {
+                var fade = new DoubleAnimation
+                {
+                    To = 0.0,
+                    Duration = dur,
+                    EasingFunction = ease,
+                    FillBehavior = FillBehavior.HoldEnd,
+                };
+                slot.BeginAnimation(UIElement.OpacityProperty, fade);
+            }
         });
     }
 
@@ -202,6 +336,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         {
             var orderedIds = PinnedItems.Select(vm => vm.Id).ToList();
             _pinnedRepo.Reorder(orderedIds);
+            LogEvent($"Reorder: [{string.Join(", ", PinnedItems.Select(v => v.DisplayName))}]");
         }
         catch (Exception ex)
         {
@@ -216,6 +351,9 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         if (sender is Button { DataContext: PinnedItemViewModel vm })
         {
             var ok = await _launchService.LaunchAsync(vm.Model);
+            LogEvent(ok
+                ? $"Launch: {vm.DisplayName}"
+                : $"Launch failed: {vm.DisplayName} → {vm.Model.TargetPath}");
             if (!ok)
             {
                 MessageBox.Show($"Failed to launch \"{vm.DisplayName}\".", "DockXI",
@@ -346,7 +484,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             else if (i == targetIndex)     { to =  half; }
             else                           { to =  0.0; }
 
-            AnimateX(tt, to);
+            AnimateAlongAxis(tt, to);
         }
     }
 
@@ -356,48 +494,103 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         {
             var tt = GetTileTranslate(i);
             if (tt is null) { continue; }
-            AnimateX(tt, 0.0);
+            AnimateAlongAxis(tt, 0.0);
         }
+    }
+
+    // Pick X-axis for horizontal dock (Top/Bottom) and Y-axis for vertical
+    // dock (Left/Right) so push-aside slides along the dock's flow direction
+    // instead of always horizontally.
+    private void AnimateAlongAxis(TranslateTransform tt, double to)
+    {
+        var prop = _itemsOrientation == Orientation.Horizontal
+            ? TranslateTransform.XProperty
+            : TranslateTransform.YProperty;
+        // Stop any previously-running animation on the OTHER axis so the tile
+        // doesn't get stuck offset perpendicular to the dock after orientation
+        // changes via the Position menu.
+        var otherProp = _itemsOrientation == Orientation.Horizontal
+            ? TranslateTransform.YProperty
+            : TranslateTransform.XProperty;
+        tt.BeginAnimation(otherProp, null);
+        if (_itemsOrientation == Orientation.Horizontal) { tt.Y = 0; } else { tt.X = 0; }
+
+        var anim = new DoubleAnimation
+        {
+            To             = to,
+            Duration       = TimeSpan.FromMilliseconds(GapAnimMs),
+            EasingFunction = new QuinticEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior   = FillBehavior.HoldEnd,
+        };
+        tt.BeginAnimation(prop, anim);
     }
 
     // --- Insert bar ---------------------------------------------------------
 
     internal void ShowInsertBar(int targetIndex)
     {
-        var x = ComputeInsertX(targetIndex);
-        if (x is null) { return; }
-        InsertBarT.X = x.Value;
+        var offset = ComputeInsertOffset(targetIndex);
+        if (offset is null) { return; }
+
+        // Orientation-aware geometry: vertical bar (1px wide, stretched in Y)
+        // for horizontal dock; horizontal bar (1px tall, stretched in X) for
+        // vertical dock. Position via the matching axis on the translate.
+        if (_itemsOrientation == Orientation.Horizontal)
+        {
+            InsertBar.Width               = 1;
+            InsertBar.Height              = double.NaN;
+            InsertBar.HorizontalAlignment = HorizontalAlignment.Left;
+            InsertBar.VerticalAlignment   = VerticalAlignment.Stretch;
+            InsertBarT.X = offset.Value;
+            InsertBarT.Y = 0;
+        }
+        else
+        {
+            InsertBar.Width               = double.NaN;
+            InsertBar.Height              = 1;
+            InsertBar.HorizontalAlignment = HorizontalAlignment.Stretch;
+            InsertBar.VerticalAlignment   = VerticalAlignment.Top;
+            InsertBarT.X = 0;
+            InsertBarT.Y = offset.Value;
+        }
         InsertBar.Visibility = Visibility.Visible;
     }
 
     internal void HideInsertBar() => InsertBar.Visibility = Visibility.Collapsed;
 
-    private double? ComputeInsertX(int targetIndex)
+    // Returns the offset (X for horizontal dock, Y for vertical dock) along
+    // the dock's main axis where the 1px insert bar should appear.
+    private double? ComputeInsertOffset(int targetIndex)
     {
+        var horizontal = _itemsOrientation == Orientation.Horizontal;
         var count = TilesHost.Items.Count;
         if (count == 0)
         {
             // Empty dock: bar in the middle of the placeholder area.
-            return TilesHost.ActualWidth / 2.0;
+            return (horizontal ? TilesHost.ActualWidth : TilesHost.ActualHeight) / 2.0;
         }
+
+        double MainAxis(Point p) => horizontal ? p.X : p.Y;
 
         if (targetIndex <= 0)
         {
             var first = TilesHost.ItemContainerGenerator.ContainerFromIndex(0) as FrameworkElement;
             if (first is null) { return null; }
-            return first.TransformToVisual(TilesHost).Transform(new Point(0, 0)).X;
+            return MainAxis(first.TransformToVisual(TilesHost).Transform(new Point(0, 0)));
         }
         if (targetIndex >= count)
         {
             var last = TilesHost.ItemContainerGenerator.ContainerFromIndex(count - 1) as FrameworkElement;
             if (last is null) { return null; }
-            return last.TransformToVisual(TilesHost).Transform(new Point(last.ActualWidth, 0)).X;
+            var tail = horizontal ? new Point(last.ActualWidth, 0) : new Point(0, last.ActualHeight);
+            return MainAxis(last.TransformToVisual(TilesHost).Transform(tail));
         }
         var prev = TilesHost.ItemContainerGenerator.ContainerFromIndex(targetIndex - 1) as FrameworkElement;
         var curr = TilesHost.ItemContainerGenerator.ContainerFromIndex(targetIndex)     as FrameworkElement;
         if (prev is null || curr is null) { return null; }
-        var r = prev.TransformToVisual(TilesHost).Transform(new Point(prev.ActualWidth, 0)).X;
-        var l = curr.TransformToVisual(TilesHost).Transform(new Point(0, 0)).X;
+        var prevTail = horizontal ? new Point(prev.ActualWidth, 0) : new Point(0, prev.ActualHeight);
+        var r = MainAxis(prev.TransformToVisual(TilesHost).Transform(prevTail));
+        var l = MainAxis(curr.TransformToVisual(TilesHost).Transform(new Point(0, 0)));
         return (r + l) / 2.0;
     }
 
@@ -410,19 +603,29 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             return null;
         }
         var slot = FindDescendant<Grid>(cp, "TileSlot");
+        // TileSlot now uses TransformGroup [ScaleTransform, TranslateTransform]
+        // to support both bounce-in scale and push-aside translate.
+        if (slot?.RenderTransform is TransformGroup tg)
+        {
+            return tg.Children.OfType<TranslateTransform>().FirstOrDefault();
+        }
         return slot?.RenderTransform as TranslateTransform;
     }
 
-    private static void AnimateX(TranslateTransform tt, double to)
+    private ScaleTransform? GetTileScale(PinnedItemViewModel vm)
     {
-        var anim = new DoubleAnimation
+        var idx = PinnedItems.IndexOf(vm);
+        if (idx < 0) { return null; }
+        if (TilesHost.ItemContainerGenerator.ContainerFromIndex(idx) is not ContentPresenter cp)
         {
-            To             = to,
-            Duration       = TimeSpan.FromMilliseconds(GapAnimMs),
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            FillBehavior   = FillBehavior.HoldEnd,
-        };
-        tt.BeginAnimation(TranslateTransform.XProperty, anim);
+            return null;
+        }
+        var slot = FindDescendant<Grid>(cp, "TileSlot");
+        if (slot?.RenderTransform is TransformGroup tg)
+        {
+            return tg.Children.OfType<ScaleTransform>().FirstOrDefault();
+        }
+        return null;
     }
 
     private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement
@@ -458,6 +661,27 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             }
             catch (InvalidOperationException) { break; }
         }
+    }
+
+    // --- Window-level external-file drop (fallback) -----------------------
+    // Catches drops on parts of the window outside the Border/ItemsControl.
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) { return; }
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) { return; }
+        if (paths.Length == 0) { return; }
+        PinFiles(paths, PinnedItems.Count);
+        e.Handled = true;
     }
 
     // --- External file drop (Border-level fallback for empty dock + padding) ---
@@ -548,8 +772,10 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     {
         if (sender is MenuItem mi && Enum.TryParse<DockEdge>(mi.Tag?.ToString(), out var edge))
         {
+            var oldEdge = _dockConfigStore.Current.Position;
             _dockConfigStore.UpdatePosition(edge);
             PositionAtScreenEdge(edge);
+            LogEvent($"Position changed: {oldEdge} → {edge}");
         }
     }
 
@@ -612,6 +838,82 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         return IntPtr.Zero;
     }
 
+    // ------------------------------------------------------------------------
+    // WM_DROPFILES — legacy Win32 shell drop. Used as fallback when OLE
+    // drag-drop is blocked by UAC/UIPI cross-IL (Explorer = User IL drags to
+    // DockXI = Admin IL). DragAcceptFiles(true) in OnSourceInitialized tells
+    // Windows we accept this message; the shell then routes drops here when
+    // OLE is unavailable.
+    // ------------------------------------------------------------------------
+    private const int WM_DROPFILES_MSG = 0x0233;
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern void DragAcceptFiles(IntPtr hWnd, bool fAccept);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint DragQueryFile(IntPtr hDrop, uint iFile,
+        System.Text.StringBuilder? lpszFile, uint cch);
+
+    [DllImport("shell32.dll")]
+    private static extern void DragFinish(IntPtr hDrop);
+
+    private IntPtr WndProc_DropFiles(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_DROPFILES_MSG) { return IntPtr.Zero; }
+
+        var hDrop = wParam;
+        try
+        {
+            var count = DragQueryFile(hDrop, 0xFFFFFFFF, null, 0);
+            var paths = new string[count];
+            for (uint i = 0; i < count; i++)
+            {
+                var len = DragQueryFile(hDrop, i, null, 0) + 1;
+                var sb  = new System.Text.StringBuilder((int)len);
+                DragQueryFile(hDrop, i, sb, len);
+                paths[i] = sb.ToString();
+            }
+            if (paths.Length > 0)
+            {
+                PinFiles(paths, PinnedItems.Count);
+            }
+        }
+        finally
+        {
+            DragFinish(hDrop);
+        }
+        handled = true;
+        return IntPtr.Zero;
+    }
+
+
+    // --- Drag-out to unpin -----------------------------------------------
+
+    internal void UnpinIfDraggedOutside(PinnedItemViewModel vm)
+    {
+        if (!GetCursorPos(out var pt)) { return; }
+        var cursor      = new Point(pt.X, pt.Y);
+        // Transform BOTH corners via PointToScreen so DPI scaling is applied to
+        // the width/height too (high-DPI displays would otherwise produce a
+        // rect smaller than the visible dock).
+        var topLeft     = PointToScreen(new Point(0, 0));
+        var bottomRight = PointToScreen(new Point(ActualWidth, ActualHeight));
+        var rect        = new Rect(topLeft, bottomRight);
+        if (rect.Contains(cursor)) { return; }   // dropped inside dock → keep
+        try { _pinnedRepo.Remove(vm.Id); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DockXI] Unpin-on-drag-out failed: {ex.Message}");
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
     // --- Win32 styling ------------------------------------------------------
 
     private const int GWL_EXSTYLE                    = -20;
@@ -619,6 +921,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE  = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND                  = 2;
+    private const int DWMWCP_DONOTROUND             = 1;
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
@@ -639,7 +942,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     {
         var on = 1;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, sizeof(int));
-        var corner = DWMWCP_ROUND;
+        var corner = DWMWCP_DONOTROUND;  // Border draws its own rounded corners — disable DWM rounding to avoid white seam
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref corner, sizeof(int));
     }
 }
@@ -665,6 +968,14 @@ internal sealed class TrackingDragSource : DefaultDragHandler
         base.DragDropOperationFinished(op, info);
         _owner.ResetDropGap();
         _owner.HideInsertBar();
+
+        // Any time a dock tile drag finishes with the cursor outside the dock,
+        // treat it as unpin — internal reorder always lands inside, so cursor
+        // outside means the user intended to drop the item away.
+        if (info.SourceItem is PinnedItemViewModel vm)
+        {
+            _owner.UnpinIfDraggedOutside(vm);
+        }
     }
 }
 
@@ -681,9 +992,10 @@ internal sealed class GapDropHandler : DefaultDropHandler
 
     public override void DragOver(IDropInfo dropInfo)
     {
-        var external = dropInfo.DragInfo is null
-            && dropInfo.Data is IDataObject d
-            && d.GetDataPresent(DataFormats.FileDrop);
+        // External drag from Explorer: dropInfo.DragInfo is null. Data shape
+        // depends on gong/Windows: sometimes IDataObject wrapper, sometimes
+        // already a string[] of paths.
+        var external = dropInfo.DragInfo is null && DataObjectHasFiles(dropInfo.Data);
 
         if (external)
         {
@@ -704,12 +1016,21 @@ internal sealed class GapDropHandler : DefaultDropHandler
         }
     }
 
+    private static bool DataObjectHasFiles(object? data) =>
+        data is IDataObject d && d.GetDataPresent(DataFormats.FileDrop) ||
+        data is string[];
+
+    private static string[]? ExtractPaths(object? data)
+    {
+        if (data is string[] arr) { return arr; }
+        if (data is IDataObject d && d.GetDataPresent(DataFormats.FileDrop)
+            && d.GetData(DataFormats.FileDrop) is string[] paths) { return paths; }
+        return null;
+    }
+
     public override void Drop(IDropInfo dropInfo)
     {
-        if (dropInfo.DragInfo is null
-            && dropInfo.Data is IDataObject d
-            && d.GetDataPresent(DataFormats.FileDrop)
-            && d.GetData(DataFormats.FileDrop) is string[] paths)
+        if (dropInfo.DragInfo is null && ExtractPaths(dropInfo.Data) is { } paths)
         {
             _owner.PinFiles(paths, dropInfo.InsertIndex);
         }

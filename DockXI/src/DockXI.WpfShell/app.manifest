@@ -2,6 +2,17 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="DockXI.WpfShell"/>
 
+  <!-- Run as standard user (NEVER auto-elevate). Required for drag-drop from
+       Explorer (User IL) to work — Windows blocks OLE drop from lower-IL to
+       higher-IL windows for security. DockXI does not need admin rights. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
   <!-- Per-monitor v2 DPI awareness so the dock sizes/positions correctly on
        mixed-DPI multi-monitor setups. -->
   <application xmlns="urn:schemas-microsoft-com:asm.v3">

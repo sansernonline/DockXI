@@ -19,6 +19,9 @@
         MinHeight="0"
         SnapsToDevicePixels="True"
         UseLayoutRounding="True"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        DragOver="Window_DragOver"
         Loaded="OnLoaded">
 
     <Window.Resources>
@@ -288,10 +291,42 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid x:Name="TileSlot">
+                        <Grid x:Name="TileSlot" RenderTransformOrigin="0.5,0.5">
                             <Grid.RenderTransform>
-                                <TranslateTransform x:Name="TileTranslate" X="0" />
+                                <TransformGroup>
+                                    <!-- Scale used for subtle pop-in (new tile pinned) and
+                                         shrink-out (tile removed). Starts at 0.75 so the
+                                         entrance is a gentle nudge, not a big "growth". -->
+                                    <ScaleTransform x:Name="TileScale" ScaleX="0.75" ScaleY="0.75" />
+                                    <!-- Translate used by code-behind push-aside (reorder gap). -->
+                                    <TranslateTransform x:Name="TileTranslate" X="0" />
+                                </TransformGroup>
                             </Grid.RenderTransform>
+                            <Grid.Triggers>
+                                <!-- Pop-in: scale 0.75 → 1.0 with tiny overshoot. Slower
+                                     duration (450ms) + low amplitude so the icon settles
+                                     in gently rather than snapping. -->
+                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="TileScale"
+                                                             Storyboard.TargetProperty="ScaleX"
+                                                             From="0.75" To="1.0" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <BackEase Amplitude="0.2" EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="TileScale"
+                                                             Storyboard.TargetProperty="ScaleY"
+                                                             From="0.75" To="1.0" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <BackEase Amplitude="0.2" EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Grid.Triggers>
                             <StackPanel Orientation="{Binding ElementName=DockWindow, Path=TileWrapOrientation}"
                                         FlowDirection="{Binding ElementName=DockWindow, Path=TileFlowDirection}">
                                 <Grid>
@@ -353,8 +388,11 @@
                        VerticalAlignment="Stretch"
                        Visibility="Collapsed"
                        IsHitTestVisible="False">
+                <!-- Width/Height + Alignment + Translate are reconfigured by
+                     ShowInsertBar() depending on dock orientation: vertical
+                     line for Top/Bottom dock, horizontal line for Left/Right. -->
                 <Rectangle.RenderTransform>
-                    <TranslateTransform x:Name="InsertBarT" X="0" />
+                    <TranslateTransform x:Name="InsertBarT" X="0" Y="0" />
                 </Rectangle.RenderTransform>
             </Rectangle>
         </Grid>
