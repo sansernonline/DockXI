@@ -33,9 +33,9 @@ body{font-family:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
 /* ── Page Header ───────────────────────────────────────────── */
 .ph{background:#181818;border-bottom:1px solid var(--sep);
     padding:14px 28px;display:flex;align-items:center;gap:12px}
-.ph-logo{width:30px;height:30px;background:var(--accent);border-radius:7px;
-         display:flex;align-items:center;justify-content:center;
-         font-size:15px;font-weight:700;flex-shrink:0}
+.ph-logo{width:32px;height:32px;border-radius:7px;flex-shrink:0;overflow:hidden;
+         display:flex;align-items:center;justify-content:center}
+.ph-logo svg{width:100%;height:100%;display:block}
 .ph-title{font-size:17px;font-weight:600}
 .ph-sub{font-size:11px;color:var(--text-dim);margin-left:4px;margin-top:2px}
 .ph-badge{margin-left:auto;background:rgba(0,120,212,.18);border:1px solid rgba(0,120,212,.35);
@@ -260,7 +260,20 @@ body{font-family:'Segoe UI Variable','Segoe UI',system-ui,sans-serif;
 
 <!-- ── Header ──────────────────────────────────────────────── -->
 <div class="ph">
-  <div class="ph-logo">D</div>
+  <div class="ph-logo">
+    <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="dockxiBgPh" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7C3AED"/>
+          <stop offset="0.55" stop-color="#A21CAF"/>
+          <stop offset="1" stop-color="#DC2626"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="1024" height="1024" rx="233" fill="url(#dockxiBgPh)"/>
+      <path d="M 279 521 L 512 260 L 745 521" fill="none" stroke="#FFFFFF" stroke-width="74" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="233" y="768" width="558" height="28" rx="14" fill="#FFFFFF"/>
+    </svg>
+  </div>
   <div>
     <div class="ph-title">DockXI</div>
     <div class="ph-sub">Floating Dock for Windows</div>

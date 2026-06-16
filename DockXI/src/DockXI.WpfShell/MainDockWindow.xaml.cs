@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -8,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -79,6 +81,23 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     private readonly IIconExtractor        _iconExtractor;
     private readonly IShortcutResolver     _shortcutResolver;
     private readonly IDockConfigStore      _dockConfigStore;
+    private readonly IRevealZoneHost       _revealZoneHost;
+
+    // --- Auto-hide state ----------------------------------------------------
+    private const int    AutoHideShowMs        = 400;  // slide IN duration (gentle reveal)
+    private const int    AutoHideHideMs        = 260; // slide OUT duration (snappy hide)
+    private const double AutoHidePeekPx        =   5.0; // visible strip when hidden
+    private const int    AutoHideDelayMs       = 400; // delay after mouse leave
+    // Minimum time the dock must remain in its new state before it can
+    // toggle again. Prevents flicker when the cursor sits at the screen
+    // edge where the reveal zone and a freshly-shown dock overlap.
+    private const int    AutoHideCooldownMs    = 500;
+    private DateTime _lastAutoHideToggle = DateTime.MinValue;
+    private System.Windows.Threading.DispatcherTimer? _hideTimer;
+    private bool _isAutoHidden;
+    private bool _isDragInProgress;
+    private double _shownLeft;
+    private double _shownTop;
 
 
     // Bound by ItemsControl.ItemsPanel/StackPanel.Orientation. Flipped to
@@ -144,13 +163,15 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         ILaunchService        launchService,
         IIconExtractor        iconExtractor,
         IShortcutResolver     shortcutResolver,
-        IDockConfigStore      dockConfigStore)
+        IDockConfigStore      dockConfigStore,
+        IRevealZoneHost       revealZoneHost)
     {
         _pinnedRepo       = pinnedRepo;
         _launchService    = launchService;
         _iconExtractor    = iconExtractor;
         _shortcutResolver = shortcutResolver;
         _dockConfigStore  = dockConfigStore;
+        _revealZoneHost   = revealZoneHost;
 
         // CRITICAL: assign drag/drop handlers BEFORE InitializeComponent so the
         // XAML binding {Binding Path=DragHandler} evaluates to our subclass,
@@ -170,6 +191,31 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         _pinnedRepo.ItemRemoved += OnItemRemoved;
         _launchService.ProcessSnapshotUpdated += OnProcessSnapshotUpdated;
 
+        _revealZoneHost.PointerEntered += OnRevealZonePointerEntered;
+        MouseEnter += OnDockMouseEnter;
+        MouseLeave += OnDockMouseLeave;
+
+        // Re-assert HWND_TOPMOST periodically so Show Desktop (Win+D) or
+        // any other Z-order shuffle from the shell can't push the dock
+        // behind the taskbar. Cheap (a single SetWindowPos call) and
+        // invisible to the user.
+        var topmostTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300),
+        };
+        topmostTimer.Tick += (_, _) =>
+        {
+            // Pause re-asserting topmost while a context menu is open — the
+            // SetWindowPos call can dismiss the popup mid-selection.
+            if (_isContextMenuOpen) { return; }
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        };
+        topmostTimer.Start();
     }
 
     // --- Startup / teardown -------------------------------------------------
@@ -236,6 +282,13 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         {
             _ = vm.LoadIconAsync(_iconExtractor, dpi);
         }
+
+        // If auto-hide was on at last shutdown, slide off-screen immediately
+        // so the user only sees a thin peek strip until they hover.
+        if (_dockConfigStore.Current.AutoHide)
+        {
+            ApplyAutoHide(true, animate: false);
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -244,6 +297,11 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         _pinnedRepo.ItemAdded   -= OnItemAdded;
         _pinnedRepo.ItemRemoved -= OnItemRemoved;
         _launchService.ProcessSnapshotUpdated -= OnProcessSnapshotUpdated;
+        _revealZoneHost.PointerEntered -= OnRevealZonePointerEntered;
+        MouseEnter -= OnDockMouseEnter;
+        MouseLeave -= OnDockMouseLeave;
+        _hideTimer?.Stop();
+        _revealZoneHost.Hide();
         base.OnClosed(e);
     }
 
@@ -427,24 +485,35 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
 
-        var w = SystemParameters.WorkArea;
+        // Clear any in-flight auto-hide animation so a direct Left/Top
+        // assignment below isn't overridden by an animation hold-end.
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty,  null);
+
+        // WorkArea excludes the taskbar. Use it for Top/Left/Right docks
+        // so the dock sits above whatever system UI is on those edges.
+        // For Bottom dock specifically, anchor to the actual screen bottom
+        // so the dock can sit flush with the monitor edge.
+        var w           = SystemParameters.WorkArea;
+        var screenBottom = SystemParameters.PrimaryScreenHeight;
         UpdateLayout();
+        const double EdgeGapPx = 15.0;           // gap between dock and screen edge
         switch (edge)
         {
             case DockEdge.Bottom:
                 Left = w.Left + (w.Width - ActualWidth) / 2;
-                Top  = w.Bottom - ActualHeight - 24;
+                Top  = screenBottom - ActualHeight - EdgeGapPx;
                 break;
             case DockEdge.Top:
                 Left = w.Left + (w.Width - ActualWidth) / 2;
-                Top  = w.Top + 24;
+                Top  = w.Top + EdgeGapPx;
                 break;
             case DockEdge.Left:
-                Left = w.Left + 24;
+                Left = w.Left + EdgeGapPx;
                 Top  = w.Top + (w.Height - ActualHeight) / 2;
                 break;
             case DockEdge.Right:
-                Left = w.Right - ActualWidth - 24;
+                Left = w.Right - ActualWidth - EdgeGapPx;
                 Top  = w.Top + (w.Height - ActualHeight) / 2;
                 break;
         }
@@ -731,9 +800,67 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     // --- Context menu -------------------------------------------------------
 
+    // True while ANY ContextMenu instance from this shared resource is open.
+    // Auto-hide + topmost timers respect this so they don't close the menu
+    // out from under the user mid-selection.
+    private bool _isContextMenuOpen;
+
     private void DockMenu_Opened(object sender, RoutedEventArgs e)
     {
         if (sender is not ContextMenu menu) { return; }
+        _isContextMenuOpen = true;
+        StartMenuPolling(menu);
+
+        // Remove any dynamically-injected "Delete \"<name>\"" from a previous
+        // open before re-evaluating the placement target.
+        for (var i = menu.Items.Count - 1; i >= 0; i--)
+        {
+            if (menu.Items[i] is FrameworkElement fe && Equals(fe.Tag, "DeleteDynamic"))
+            {
+                menu.Items.RemoveAt(i);
+            }
+        }
+
+        // If opened from a tile (Button with PinnedItemViewModel context),
+        // inject a "Delete \"<name>\"" entry just before the separator that
+        // precedes "About DockXI" — so the item-specific action sits with
+        // the dock-settings group, visually separated from About / Quit.
+        if (menu.PlacementTarget is Button btn && btn.DataContext is PinnedItemViewModel vm)
+        {
+            var delete = new MenuItem
+            {
+                Header      = $"Delete \"{vm.DisplayName}\"",
+                Style       = (Style)FindResource("DockMenuItemStyle"),
+                DataContext = vm,
+                Tag         = "DeleteDynamic",
+            };
+            delete.Click += DeleteTile_Click;
+
+            var insertIdx = menu.Items.Count;
+            for (var i = 0; i < menu.Items.Count; i++)
+            {
+                if (menu.Items[i] is MenuItem m && Equals(m.Header, "About DockXI"))
+                {
+                    // Insert just BEFORE the separator that precedes About,
+                    // so structure becomes:
+                    //   Auto-hide
+                    //   ─── (new sep above Delete)
+                    //   Delete "<name>"
+                    //   ─── (original sep before About)
+                    //   About
+                    insertIdx = (i > 0 && menu.Items[i - 1] is Separator) ? i - 1 : i;
+                    break;
+                }
+            }
+            var sepAbove = new Separator
+            {
+                Style = (Style)FindResource("DockSeparatorStyle"),
+                Tag   = "DeleteDynamic",
+            };
+            menu.Items.Insert(insertIdx,     sepAbove);
+            menu.Items.Insert(insertIdx + 1, delete);
+        }
+
         var pos = _dockConfigStore.Current.Position;
         foreach (var top in menu.Items.OfType<MenuItem>())
         {
@@ -751,6 +878,110 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
                     }
                 }
             }
+        }
+    }
+
+    private void DockMenu_Closed(object sender, RoutedEventArgs e)
+    {
+        _isContextMenuOpen = false;
+        _menuPollTimer?.Stop();
+        _menuPollTimer = null;
+
+        // If the user closed the menu by hovering away and the cursor is
+        // outside the dock with auto-hide on, kick off the hide timer right
+        // away so the dock slides out without waiting for another MouseLeave.
+        if (_dockConfigStore.Current.AutoHide && !IsCursorNearDock())
+        {
+            StartHideTimer();
+        }
+    }
+
+    // Cursor-position polling for close-on-leave. ContextMenu.MouseLeave
+    // doesn't fire reliably because the popup is a separate top-level window,
+    // and IsMouseOver lies for the same reason. So we poll the real cursor
+    // position against the screen rect of every open menu / submenu.
+    private System.Windows.Threading.DispatcherTimer? _menuPollTimer;
+    private DateTime _menuOpenedAt;
+    private const int MenuOpenGraceMs   = 400;  // ignore polling until user gets to the menu
+    private const int MenuLeaveCloseMs  = 200;  // close once cursor is out for this long
+    private DateTime _menuOutsideSince  = DateTime.MaxValue;
+
+    private void StartMenuPolling(ContextMenu menu)
+    {
+        _menuPollTimer?.Stop();
+        _menuOpenedAt    = DateTime.Now;
+        _menuOutsideSince = DateTime.MaxValue;
+        _menuPollTimer   = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(80),
+        };
+        _menuPollTimer.Tick += (_, _) =>
+        {
+            if (!menu.IsOpen) { _menuPollTimer?.Stop(); return; }
+            // Grace period after opening so the cursor has time to reach the
+            // first menu item even if it spawned a few pixels off the cursor.
+            if ((DateTime.Now - _menuOpenedAt).TotalMilliseconds < MenuOpenGraceMs) { return; }
+
+            if (IsCursorOverAnyOpenMenuPart(menu))
+            {
+                _menuOutsideSince = DateTime.MaxValue;
+                return;
+            }
+            // Cursor is outside. Track for how long; only close after the
+            // outside-streak passes MenuLeaveCloseMs so brief jumps between
+            // main menu and a submenu's popup don't snap the menu shut.
+            if (_menuOutsideSince == DateTime.MaxValue) { _menuOutsideSince = DateTime.Now; }
+            if ((DateTime.Now - _menuOutsideSince).TotalMilliseconds >= MenuLeaveCloseMs)
+            {
+                menu.IsOpen = false;
+            }
+        };
+        _menuPollTimer.Start();
+    }
+
+    private bool IsCursorOverAnyOpenMenuPart(ContextMenu menu)
+    {
+        if (!GetCursorPos(out var pt)) { return true; }   // err on the safe side
+        var cursor = new Point(pt.X, pt.Y);
+        // Main menu rect.
+        if (TryGetScreenRect(menu, out var mainRect) && mainRect.Contains(cursor)) { return true; }
+        // Any open submenu popup (Position ▸ etc.).
+        foreach (var sub in EnumerateOpenSubmenus(menu))
+        {
+            if (TryGetScreenRect(sub, out var subRect) && subRect.Contains(cursor)) { return true; }
+        }
+        return false;
+    }
+
+    private static IEnumerable<MenuItem> EnumerateOpenSubmenus(ItemsControl parent)
+    {
+        foreach (var item in parent.Items)
+        {
+            if (item is MenuItem mi && mi.IsSubmenuOpen)
+            {
+                yield return mi;
+                foreach (var nested in EnumerateOpenSubmenus(mi))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    private static bool TryGetScreenRect(FrameworkElement el, out Rect rect)
+    {
+        rect = default;
+        if (!el.IsVisible || el.ActualWidth <= 0 || el.ActualHeight <= 0) { return false; }
+        try
+        {
+            var tl = el.PointToScreen(new Point(0, 0));
+            var br = el.PointToScreen(new Point(el.ActualWidth, el.ActualHeight));
+            rect = new Rect(tl, br);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -776,12 +1007,276 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             _dockConfigStore.UpdatePosition(edge);
             PositionAtScreenEdge(edge);
             LogEvent($"Position changed: {oldEdge} → {edge}");
+
+            // Reset auto-hide for the new edge so the reveal zone moves with
+            // the dock and the hidden offset is recomputed.
+            if (_dockConfigStore.Current.AutoHide)
+            {
+                _isAutoHidden = false;          // force ApplyAutoHide to run
+                _revealZoneHost.Hide();
+                ApplyAutoHide(true, animate: false);
+            }
         }
     }
 
     private void AutoHide_Click(object sender, RoutedEventArgs e)
     {
-        _dockConfigStore.UpdateAutoHide(!_dockConfigStore.Current.AutoHide);
+        var newState = !_dockConfigStore.Current.AutoHide;
+        _dockConfigStore.UpdateAutoHide(newState);
+        LogEvent($"Auto-hide: {(newState ? "on" : "off")}");
+        if (newState)
+        {
+            // Schedule first hide after delay so the user can confirm the
+            // dock didn't crash before it disappears.
+            StartHideTimer();
+        }
+        else
+        {
+            _hideTimer?.Stop();
+            ApplyAutoHide(false);
+        }
+    }
+
+    // --- Auto-hide / reveal -------------------------------------------------
+
+    private void OnDockMouseEnter(object sender, MouseEventArgs e)
+    {
+        _hideTimer?.Stop();
+        if (_isAutoHidden) { ApplyAutoHide(false); }
+    }
+
+    private void OnDockMouseLeave(object sender, MouseEventArgs e)
+    {
+        if (!_dockConfigStore.Current.AutoHide) { return; }
+        StartHideTimer();
+    }
+
+    private void OnRevealZonePointerEntered(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            // Cooldown guard: if the dock JUST hid, ignore an immediate
+            // reveal trigger. This breaks the flicker loop that happens
+            // when the cursor sits at the screen edge — the reveal zone
+            // appears under it the moment hide finishes.
+            if ((DateTime.Now - _lastAutoHideToggle).TotalMilliseconds < AutoHideCooldownMs)
+            {
+                return;
+            }
+            _hideTimer?.Stop();
+            ApplyAutoHide(false);
+        });
+    }
+
+    private void StartHideTimer()
+    {
+        _hideTimer?.Stop();
+        _hideTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(AutoHideDelayMs),
+        };
+        _hideTimer.Tick += (_, _) =>
+        {
+            _hideTimer?.Stop();
+            if (!_dockConfigStore.Current.AutoHide) { return; }
+            if (_isDragInProgress)                  { return; }
+            if (IsContextMenuOpen())                { return; }
+            // Truth source for "is cursor near dock": real screen-pixel
+            // GetCursorPos against the dock rect + a guard band. WPF's
+            // IsMouseOver is unreliable mid-animation (window keeps moving,
+            // events fire/un-fire each frame → flicker).
+            if (IsCursorNearDock())                 { StartHideTimer(); return; }
+            // Cooldown after just having shown: prevent rapid hide.
+            if ((DateTime.Now - _lastAutoHideToggle).TotalMilliseconds < AutoHideCooldownMs)
+            {
+                StartHideTimer();
+                return;
+            }
+            ApplyAutoHide(true);
+        };
+        _hideTimer.Start();
+    }
+
+    // Flag-based: each ContextMenu instance (Border + every tile Button) wires
+    // the same Opened/Closed handlers and toggles _isContextMenuOpen, so this
+    // covers them all without having to iterate tile container generators.
+    private bool IsContextMenuOpen() => _isContextMenuOpen;
+
+    // Real cursor position vs dock rect, extended all the way to the screen
+    // edge that the dock anchors against. This is the key flicker fix:
+    // when the user holds their cursor at the very screen edge to keep the
+    // dock revealed, the cursor is BELOW the docked plate (there's a small
+    // gap above the screen edge). Without the extension, MouseLeave fires
+    // → hide → dock peek covers cursor → MouseEnter → show → loop.
+    private bool IsCursorNearDock()
+    {
+        if (!GetCursorPos(out var pt)) { return false; }
+        var cursor = new Point(pt.X, pt.Y);
+        try
+        {
+            var topLeft     = PointToScreen(new Point(0, 0));
+            var bottomRight = PointToScreen(new Point(ActualWidth, ActualHeight));
+            var rect        = new Rect(topLeft, bottomRight);
+
+            // Stretch rect to the screen edge on the docked side so the
+            // hot zone includes the gap between dock and screen edge.
+            var dpiTopLeft = PointToScreen(new Point(0, 0));
+            // SystemParameters.PrimaryScreen* are in DIPs; convert via dpi.
+            var dpi = GetSystemDpi();
+            var screenW = SystemParameters.PrimaryScreenWidth  * dpi;
+            var screenH = SystemParameters.PrimaryScreenHeight * dpi;
+            switch (_dockConfigStore.Current.Position)
+            {
+                case DockEdge.Bottom: rect = new Rect(rect.Left, rect.Top,    rect.Width, screenH - rect.Top);    break;
+                case DockEdge.Top:    rect = new Rect(rect.Left, 0,           rect.Width, rect.Bottom);            break;
+                case DockEdge.Left:   rect = new Rect(0,         rect.Top,    rect.Right,  rect.Height);           break;
+                case DockEdge.Right:  rect = new Rect(rect.Left, rect.Top,    screenW - rect.Left, rect.Height);   break;
+            }
+            rect.Inflate(8, 8);
+            return rect.Contains(cursor);
+        }
+        catch
+        {
+            return false;                        // PointToScreen can throw if HWND not realized
+        }
+    }
+
+    // Called by TrackingDragSource so auto-hide doesn't snap the dock away
+    // while the user is mid-drag (cursor would leave the window during the
+    // drag, which would normally trigger MouseLeave → hide timer).
+    internal void MarkDragStarted() => _isDragInProgress = true;
+    internal void MarkDragEnded()
+    {
+        _isDragInProgress = false;
+        // If the cursor ended up outside the dock (drag-out case), the next
+        // mouse-leave was suppressed — re-arm the hide timer here.
+        if (_dockConfigStore.Current.AutoHide && !IsMouseOver) { StartHideTimer(); }
+    }
+
+    // Toggle hidden state. When hiding, animate to a position where only a
+    // 2-px peek strip remains on-screen and show the reveal-zone sentinel.
+    // When showing, hide the sentinel and animate back to the docked spot.
+    private void ApplyAutoHide(bool hide, bool animate = true)
+    {
+        if (hide == _isAutoHidden) { return; }
+        _lastAutoHideToggle = DateTime.Now;
+
+        if (hide)
+        {
+            // Remember docked position so we can slide back to it later.
+            _shownLeft = Left;
+            _shownTop  = Top;
+            var (toLeft, toTop) = ComputeHiddenPosition();
+            AnimateWindowTo(toLeft, toTop, animate, isShow: false);
+            _revealZoneHost.Show(ComputeRevealRect());
+            _isAutoHidden = true;
+        }
+        else
+        {
+            _revealZoneHost.Hide();
+            AnimateWindowTo(_shownLeft, _shownTop, animate, isShow: true);
+            _isAutoHidden = false;
+        }
+    }
+
+    // Slide to (left, top). Show uses a longer duration + SineEase EaseOut
+    // for a buttery reveal; hide is shorter + QuinticEase EaseIn so the dock
+    // gets out of the way quickly. 120fps frame hint reduces jitter when the
+    // OS moves the HWND each tick.
+    private void AnimateWindowTo(double targetLeft, double targetTop, bool animate, bool isShow)
+    {
+        // CRITICAL: read the current animated value BEFORE clearing the
+        // animation. Without this, the value snaps back to the property's
+        // local value (which may be stale from a non-animated set earlier)
+        // and the next animation appears to start from the wrong place —
+        // making the first show after app-startup look much faster than
+        // subsequent shows.
+        var currentLeft = Left;
+        var currentTop  = Top;
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty,  null);
+        Left = currentLeft;
+        Top  = currentTop;
+
+        if (!animate)
+        {
+            Left = targetLeft;
+            Top  = targetTop;
+            return;
+        }
+
+        IEasingFunction ease = isShow
+            ? new SineEase    { EasingMode = EasingMode.EaseOut }
+            : new QuinticEase { EasingMode = EasingMode.EaseIn };
+        var dur = TimeSpan.FromMilliseconds(isShow ? AutoHideShowMs : AutoHideHideMs);
+        var animLeft = new DoubleAnimation
+        {
+            From           = currentLeft,
+            To             = targetLeft,
+            Duration       = dur,
+            EasingFunction = ease,
+            FillBehavior   = FillBehavior.HoldEnd,
+        };
+        var animTop = new DoubleAnimation
+        {
+            From           = currentTop,
+            To             = targetTop,
+            Duration       = dur,
+            EasingFunction = ease,
+            FillBehavior   = FillBehavior.HoldEnd,
+        };
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(animLeft, 120);
+        System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(animTop,  120);
+        BeginAnimation(LeftProperty, animLeft);
+        BeginAnimation(TopProperty,  animTop);
+    }
+
+    // Hidden position: slide perpendicular to the dock edge so only the peek
+    // strip remains visible. Bottom uses the screen edge; other edges use
+    // the WorkArea so the dock peeks above any system UI on that side.
+    private (double Left, double Top) ComputeHiddenPosition()
+    {
+        var w           = SystemParameters.WorkArea;
+        var screenBottom = SystemParameters.PrimaryScreenHeight;
+        return _dockConfigStore.Current.Position switch
+        {
+            DockEdge.Bottom => (_shownLeft, screenBottom - AutoHidePeekPx),
+            DockEdge.Top    => (_shownLeft, w.Top - ActualHeight + AutoHidePeekPx),
+            DockEdge.Left   => (w.Left - ActualWidth + AutoHidePeekPx, _shownTop),
+            DockEdge.Right  => (w.Right - AutoHidePeekPx, _shownTop),
+            _               => (_shownLeft, _shownTop),
+        };
+    }
+
+    // Reveal zone: 4-px-thick strip along the dock-anchored edge so the user
+    // can bring the dock back without aiming precisely at the peek strip.
+    // Bottom uses the real screen edge; other sides use the WorkArea edge.
+    private Windows.Graphics.RectInt32 ComputeRevealRect()
+    {
+        var dpi          = GetSystemDpi();
+        var w            = SystemParameters.WorkArea;
+        var screenBottom = SystemParameters.PrimaryScreenHeight;
+        const int thick = 4;
+        int X(double dipX) => (int)Math.Round(dipX * dpi);
+        int Y(double dipY) => (int)Math.Round(dipY * dpi);
+        return _dockConfigStore.Current.Position switch
+        {
+            DockEdge.Bottom => new Windows.Graphics.RectInt32(
+                X(_shownLeft), Y(screenBottom - thick), X(ActualWidth), thick),
+            DockEdge.Top    => new Windows.Graphics.RectInt32(
+                X(_shownLeft), Y(w.Top),            X(ActualWidth), thick),
+            DockEdge.Left   => new Windows.Graphics.RectInt32(
+                X(w.Left),     Y(_shownTop),        thick,          Y(ActualHeight)),
+            DockEdge.Right  => new Windows.Graphics.RectInt32(
+                X(w.Right - thick), Y(_shownTop),   thick,          Y(ActualHeight)),
+            _               => default,
+        };
+    }
+
+    private static double GetSystemDpi()
+    {
+        using var g = System.Drawing.Graphics.FromHwnd(IntPtr.Zero);
+        return g.DpiX / 96.0;
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
@@ -837,6 +1332,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         }
         return IntPtr.Zero;
     }
+
 
     // ------------------------------------------------------------------------
     // WM_DROPFILES — legacy Win32 shell drop. Used as fallback when OLE
@@ -918,6 +1414,15 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private const int GWL_EXSTYLE                    = -20;
     private const int WS_EX_TOOLWINDOW              = 0x00000080;
+    private static readonly IntPtr HWND_TOPMOST     = new(-1);
+    private const uint SWP_NOMOVE                   = 0x0002;
+    private const uint SWP_NOSIZE                   = 0x0001;
+    private const uint SWP_NOACTIVATE               = 0x0010;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE  = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND                  = 2;
@@ -956,9 +1461,16 @@ internal sealed class TrackingDragSource : DefaultDragHandler
     private readonly MainDockWindow _owner;
     public TrackingDragSource(MainDockWindow owner) => _owner = owner;
 
+    public override void StartDrag(IDragInfo dragInfo)
+    {
+        _owner.MarkDragStarted();
+        base.StartDrag(dragInfo);
+    }
+
     public override void DragCancelled()
     {
         base.DragCancelled();
+        _owner.MarkDragEnded();
         _owner.ResetDropGap();
         _owner.HideInsertBar();
     }
@@ -966,6 +1478,7 @@ internal sealed class TrackingDragSource : DefaultDragHandler
     public override void DragDropOperationFinished(DragDropEffects op, IDragInfo info)
     {
         base.DragDropOperationFinished(op, info);
+        _owner.MarkDragEnded();
         _owner.ResetDropGap();
         _owner.HideInsertBar();
 

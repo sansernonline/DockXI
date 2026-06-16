@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.svg" alt="DockXI" width="120" height="120"/>
+</p>
+
 # DockXI — Floating Dock for Windows
 
 A floating, always-on-top dock for Windows built on **WPF + .NET 8**, inspired by the macOS dock. This document is the developer guide; the [repository root README](../README.md) has the user-facing summary.
@@ -65,6 +69,8 @@ dotnet publish src\DockXI.WpfShell -c Release -r win-x64 --self-contained false
 DockXI.sln
 Directory.Build.props        ← global compiler flags (Nullable, TreatWarningsAsErrors, NuGetAudit=false)
 Directory.Packages.props     ← Central Package Management — version pins live here
+assets/
+└── icon.svg                 ← app icon master (1024×1024, purple→red gradient + white caret + dock bar)
 
 src/
 ├── DockXI.Core/                       ← Domain layer, no UI dependency
@@ -270,6 +276,11 @@ Use `Moq` for `IPinnedItemRepository`-style interfaces. Tests never spin up a WP
 |---------|-------|------------|
 | Empty dock starts at 132×38 instead of 62×62 | Win32 min track size locks in BEFORE OnSourceInitialized | `WM_GETMINMAXINFO` hook + `SizeToContent` toggle (already in place) |
 | Right-dock tooltip drifts inward | StackPanel `FlowDirection=RightToLeft` leaks into the ToolTip | `tt.FlowDirection = LeftToRight` forced in `Tile_ToolTipOpening` |
+| Drag-in from Explorer silently fails | DockXI runs as Admin, Explorer is User → OLE cross-IL block | Run as standard user; `asInvoker` set in `app.manifest`; UIPI filter + WM_DROPFILES fallback in place |
+| Drag handlers (gong overrides) never fire | `DragHandler`/`DropHandler` assigned AFTER `InitializeComponent` → XAML binding sees null | Assign handlers BEFORE `InitializeComponent` in the constructor |
+| Auto-hide flickers when cursor sits at screen edge | Edge dock has small gap to screen edge → MouseLeave fires when cursor IS at edge → hide → peek covers cursor → MouseEnter → loop | `IsCursorNearDock` extends rect all the way to the anchored screen edge + 500 ms cooldown between toggles |
+| Taskbar covers bottom dock after Win+D | Both windows are Topmost; taskbar wins z-order shuffle | 300 ms timer re-asserts `HWND_TOPMOST` |
+| First show animation faster than later ones | `BeginAnimation` without explicit `From` reads stale local value | Capture `Left`/`Top`, clear animation, re-set, then animate with explicit `From` |
 | OneDrive truncates files on save | Cloud sync mid-write | Prefer `Read → Edit → Write` over very large `Write` calls; check file size after save |
 | NuGet build warning NU1900 → error | `TreatWarningsAsErrors=true` + NuGet audit endpoint timeout | `<NuGetAudit>false</NuGetAudit>` in `Directory.Build.props` |
 
@@ -277,11 +288,10 @@ Use `Moq` for `IPinnedItemRepository`-style interfaces. Tests never spin up a WP
 
 ## Roadmap
 
-- [ ] **Auto-hide + reveal zone** — needs a 1-px HWND on the dock's edge; `WpfRevealZoneHost` is scaffolded but not yet active
+- [ ] **Multi-monitor target picker** — choose which screen the dock anchors to (currently primary only)
 - [ ] **Add URL…** menu item — pin web shortcuts via the default browser
-- [ ] **Display submenu** — multi-monitor target picker
+- [ ] **Settings dialog** — UI for icon size / auto-start / config path / hide-delay tuning
 - [ ] **Click-launch bounce decoupled from hover** — currently hover and click animations share the same `TranslateTransform`
-- [ ] **Settings dialog** — currently no UI for icon size / auto-start / config path
 
 ---
 

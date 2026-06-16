@@ -237,6 +237,33 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Single shared dock context menu. Used for BOTH the empty plate
+             (right-click on whitespace) and per-tile right-click. When opened
+             from a tile, DockMenu_Opened injects a "Delete \"<name>\"" item
+             at the top so the user gets all the dock settings PLUS the
+             item-specific delete in a single menu. x:Shared=False so each
+             ContextMenu attached site gets a separate instance — a
+             ContextMenu can't be a logical child of two parents. -->
+        <ContextMenu x:Key="DockMenu" x:Shared="False"
+                     Opened="DockMenu_Opened"
+                     Closed="DockMenu_Closed"
+                     Style="{StaticResource DockContextMenuStyle}"
+                     Foreground="{StaticResource MenuFg}">
+            <MenuItem Header="Add file..."   Click="PinFile_Click"   Style="{StaticResource DockMenuItemStyle}" />
+            <MenuItem Header="Add folder..." Click="PinFolder_Click" Style="{StaticResource DockMenuItemStyle}" />
+            <Separator Style="{StaticResource DockSeparatorStyle}" />
+            <MenuItem Header="Position" Style="{StaticResource DockMenuItemStyle}">
+                <MenuItem Header="Bottom" IsCheckable="True" Click="Position_Click" Tag="Bottom" Style="{StaticResource DockMenuItemStyle}" />
+                <MenuItem Header="Top"    IsCheckable="True" Click="Position_Click" Tag="Top"    Style="{StaticResource DockMenuItemStyle}" />
+                <MenuItem Header="Left"   IsCheckable="True" Click="Position_Click" Tag="Left"   Style="{StaticResource DockMenuItemStyle}" />
+                <MenuItem Header="Right"  IsCheckable="True" Click="Position_Click" Tag="Right"  Style="{StaticResource DockMenuItemStyle}" />
+            </MenuItem>
+            <MenuItem Header="Auto-hide" IsCheckable="True" Tag="AutoHide" Click="AutoHide_Click" Style="{StaticResource DockMenuItemStyle}" />
+            <Separator Style="{StaticResource DockSeparatorStyle}" />
+            <MenuItem Header="About DockXI" Click="About_Click" Style="{StaticResource DockMenuItemStyle}" />
+            <MenuItem Header="Quit DockXI"  Click="Quit_Click"  Style="{StaticResource DockMenuItemStyle}" />
+        </ContextMenu>
     </Window.Resources>
 
     <!-- BorderThickness=0 + Snap/UseLayoutRounding => no rounded-corner hairline.
@@ -256,23 +283,7 @@
             DragLeave="DockPlate_DragLeave"
             Drop="DockPlate_Drop">
         <Border.ContextMenu>
-            <ContextMenu Opened="DockMenu_Opened"
-                         Style="{StaticResource DockContextMenuStyle}"
-                         Foreground="{StaticResource MenuFg}">
-                <MenuItem Header="Add file..."   Click="PinFile_Click"   Style="{StaticResource DockMenuItemStyle}" />
-                <MenuItem Header="Add folder..." Click="PinFolder_Click" Style="{StaticResource DockMenuItemStyle}" />
-                <Separator Style="{StaticResource DockSeparatorStyle}" />
-                <MenuItem Header="Position" Style="{StaticResource DockMenuItemStyle}">
-                    <MenuItem Header="Bottom" IsCheckable="True" Click="Position_Click" Tag="Bottom" Style="{StaticResource DockMenuItemStyle}" />
-                    <MenuItem Header="Top"    IsCheckable="True" Click="Position_Click" Tag="Top"    Style="{StaticResource DockMenuItemStyle}" />
-                    <MenuItem Header="Left"   IsCheckable="True" Click="Position_Click" Tag="Left"   Style="{StaticResource DockMenuItemStyle}" />
-                    <MenuItem Header="Right"  IsCheckable="True" Click="Position_Click" Tag="Right"  Style="{StaticResource DockMenuItemStyle}" />
-                </MenuItem>
-                <MenuItem Header="Auto-hide" IsCheckable="True" Tag="AutoHide" Click="AutoHide_Click" Style="{StaticResource DockMenuItemStyle}" />
-                <Separator Style="{StaticResource DockSeparatorStyle}" />
-                <MenuItem Header="About DockXI" Click="About_Click" Style="{StaticResource DockMenuItemStyle}" />
-                <MenuItem Header="Quit DockXI"  Click="Quit_Click"  Style="{StaticResource DockMenuItemStyle}" />
-            </ContextMenu>
+            <StaticResource ResourceKey="DockMenu" />
         </Border.ContextMenu>
 
         <Grid MinWidth="{Binding ElementName=DockWindow, Path=DockMinWidth}"
@@ -339,13 +350,7 @@
                                                      Style="{StaticResource TooltipOverlayStyle}" />
                                         </Button.ToolTip>
                                         <Button.ContextMenu>
-                                            <ContextMenu Style="{StaticResource DockContextMenuStyle}"
-                                                         Foreground="{StaticResource MenuFg}"
-                                                         DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                                <MenuItem Header="Delete"
-                                                          Click="DeleteTile_Click"
-                                                          Style="{StaticResource DockMenuItemStyle}" />
-                                            </ContextMenu>
+                                            <StaticResource ResourceKey="DockMenu" />
                                         </Button.ContextMenu>
                                         <Button.RenderTransform>
                                             <TranslateTransform Y="0" />

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="DockXI/assets/icon.svg" alt="DockXI" width="120" height="120"/>
+</p>
+
 # DockXI — Floating Dock for Windows
 
 A lightweight, macOS-style floating dock for Windows. Built on **WPF + .NET 8**.
@@ -12,12 +16,15 @@ A lightweight, macOS-style floating dock for Windows. Built on **WPF + .NET 8**.
 ## Features
 
 - **Floating dock** — always on top, position on any screen edge (Top / Bottom / Left / Right)
+- **Auto-hide + reveal zone** — dock slides off-screen when idle, peeks back when you brush the edge
 - **Hover lift** — icons rise smoothly when the cursor passes over them
-- **Drag-to-reorder** — neighbouring icons split aside to show the drop position
-- **Pin from anywhere** — drag files / folders from Explorer right onto the dock
-- **Running indicator** — small accent dot under tiles whose app is running
+- **Drag-to-reorder** — neighbouring icons split aside with orientation-aware push-aside and insert separator
+- **Drag-in to pin** — drop a file / folder from Explorer onto the dock to pin it (works as Admin via UAC bypass)
+- **Drag-out to unpin** — pull a tile off the dock to remove it; pop-in / shrink-out bounce animations
+- **Running indicator** — accent dot under tiles whose app is running
 - **Broken target badge** — red **!** when the pinned target file is missing
-- **Per-tile context menu** — right-click an icon to delete it from the dock
+- **Per-tile context menu** — right-click an icon to delete it
+- **Activity log** — every pin / unpin / launch / position change recorded to `logs/activity.log` (rotates at 1 MB)
 - **Dark theme** — matches Windows 11 dark style, transparent rounded plate
 
 ## Quick Start
@@ -58,7 +65,7 @@ See **[`DockXI/README.md`](DockXI/README.md)** for architecture, build, and deve
 
 ## Status
 
-Pre-release. UI is mockup-aligned and the core workflow (pin / launch / reorder / delete) is functional. Auto-hide + multi-monitor selection are on the roadmap.
+**v1.0.0** — first stable release. Full workflow ships: pin / launch / reorder / drag-drop / auto-hide. Multi-monitor selection is on the roadmap.
 
 ## License
 
