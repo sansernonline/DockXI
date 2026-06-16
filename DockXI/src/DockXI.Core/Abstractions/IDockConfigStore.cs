@@ -15,6 +15,8 @@ public interface IDockConfigStore
 
     void UpdateAutoHide(bool enabled);
 
+    void UpdateIsLocked(bool locked);
+
     void UpdateIconSize(int iconSizeDp);
 
     void UpdateMagnificationLevel(MagnificationLevel level);

@@ -740,6 +740,12 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void Window_DragOver(object sender, DragEventArgs e)
     {
+        if (_dockConfigStore.Current.IsLocked)
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.Copy;
@@ -749,6 +755,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void Window_Drop(object sender, DragEventArgs e)
     {
+        if (_dockConfigStore.Current.IsLocked) { return; }
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) { return; }
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) { return; }
         if (paths.Length == 0) { return; }
@@ -760,6 +767,12 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void DockPlate_DragEnter(object sender, DragEventArgs e)
     {
+        if (_dockConfigStore.Current.IsLocked)
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.Copy;
@@ -769,6 +782,12 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     private void DockPlate_DragOver(object sender, DragEventArgs e)
     {
+        if (_dockConfigStore.Current.IsLocked)
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.Copy;
@@ -785,6 +804,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     private void DockPlate_Drop(object sender, DragEventArgs e)
     {
         HideInsertBar();
+        if (_dockConfigStore.Current.IsLocked) { return; }
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)) { return; }
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) { return; }
         if (paths.Length == 0) { return; }
@@ -874,6 +894,10 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             if (top.Tag is string asTag && asTag == "AutoStart")
             {
                 top.IsChecked = _autoStart.IsEnabled;
+            }
+            if (top.Tag is string lockTag && lockTag == "Lock")
+            {
+                top.IsChecked = _dockConfigStore.Current.IsLocked;
             }
             if (top.Header is "Position")
             {
@@ -1034,6 +1058,13 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         LogEvent($"Auto-start: {(enable ? "on" : "off")}");
     }
 
+    private void Lock_Click(object sender, RoutedEventArgs e)
+    {
+        var newState = !_dockConfigStore.Current.IsLocked;
+        _dockConfigStore.UpdateIsLocked(newState);
+        LogEvent($"Lock dock: {(newState ? "on" : "off")}");
+    }
+
     private void AutoHide_Click(object sender, RoutedEventArgs e)
     {
         var newState = !_dockConfigStore.Current.AutoHide;
@@ -1159,6 +1190,8 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     // Called by TrackingDragSource so auto-hide doesn't snap the dock away
     // while the user is mid-drag (cursor would leave the window during the
     // drag, which would normally trigger MouseLeave → hide timer).
+    internal bool IsLocked => _dockConfigStore.Current.IsLocked;
+
     internal void MarkDragStarted() => _isDragInProgress = true;
     internal void MarkDragEnded()
     {
@@ -1371,6 +1404,12 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     private IntPtr WndProc_DropFiles(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg != WM_DROPFILES_MSG) { return IntPtr.Zero; }
+        if (_dockConfigStore.Current.IsLocked)
+        {
+            DragFinish(wParam);
+            handled = true;
+            return IntPtr.Zero;
+        }
 
         var hDrop = wParam;
         try
@@ -1402,6 +1441,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
 
     internal void UnpinIfDraggedOutside(PinnedItemViewModel vm)
     {
+        if (_dockConfigStore.Current.IsLocked) { return; }
         if (!GetCursorPos(out var pt)) { return; }
         var cursor      = new Point(pt.X, pt.Y);
         // Transform BOTH corners via PointToScreen so DPI scaling is applied to
@@ -1478,6 +1518,7 @@ internal sealed class TrackingDragSource : DefaultDragHandler
 
     public override void StartDrag(IDragInfo dragInfo)
     {
+        if (_owner.IsLocked) { dragInfo.Effects = DragDropEffects.None; return; }
         _owner.MarkDragStarted();
         base.StartDrag(dragInfo);
     }
@@ -1520,6 +1561,12 @@ internal sealed class GapDropHandler : DefaultDropHandler
 
     public override void DragOver(IDropInfo dropInfo)
     {
+        if (_owner.IsLocked)
+        {
+            dropInfo.Effects = DragDropEffects.None;
+            dropInfo.DropTargetAdorner = null;
+            return;
+        }
         // External drag from Explorer: dropInfo.DragInfo is null. Data shape
         // depends on gong/Windows: sometimes IDataObject wrapper, sometimes
         // already a string[] of paths.
@@ -1558,6 +1605,7 @@ internal sealed class GapDropHandler : DefaultDropHandler
 
     public override void Drop(IDropInfo dropInfo)
     {
+        if (_owner.IsLocked) { return; }
         if (dropInfo.DragInfo is null && ExtractPaths(dropInfo.Data) is { } paths)
         {
             _owner.PinFiles(paths, dropInfo.InsertIndex);

@@ -260,6 +260,7 @@
                 <MenuItem Header="Right"  IsCheckable="True" Click="Position_Click" Tag="Right"  Style="{StaticResource DockMenuItemStyle}" />
             </MenuItem>
             <MenuItem Header="Auto-hide" IsCheckable="True" Tag="AutoHide" Click="AutoHide_Click" Style="{StaticResource DockMenuItemStyle}" />
+            <MenuItem Header="Lock dock" IsCheckable="True" Tag="Lock"     Click="Lock_Click"     Style="{StaticResource DockMenuItemStyle}" />
             <MenuItem Header="Start with Windows" IsCheckable="True" Tag="AutoStart" Click="AutoStart_Click" Style="{StaticResource DockMenuItemStyle}" />
             <Separator Style="{StaticResource DockSeparatorStyle}" />
             <MenuItem Header="About DockXI" Click="About_Click" Style="{StaticResource DockMenuItemStyle}" />

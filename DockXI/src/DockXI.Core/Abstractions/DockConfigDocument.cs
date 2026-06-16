@@ -34,6 +34,13 @@ public sealed record DockConfig
 
     public bool AutoHide { get; set; }
 
+    /// <summary>
+    /// When true, all drag operations (drag-in from Explorer, drag-out to
+    /// unpin, internal reorder) are ignored. Clicking tiles to launch and
+    /// menu actions still work. Used as an "anti-accidental" guard.
+    /// </summary>
+    public bool IsLocked { get; set; }
+
     public int IconSizeDp { get; set; } = Defaults.Dock.IconSizeDp;
 
     public MagnificationLevel MagnificationLevel { get; set; } = MagnificationLevel.Medium;

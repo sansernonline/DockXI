@@ -48,6 +48,14 @@ internal sealed class DockConfigStore : IDockConfigStore
         Raise();
     }
 
+    public void UpdateIsLocked(bool locked)
+    {
+        if (_current.IsLocked == locked) { return; }
+        _current = _current with { IsLocked = locked };
+        _logger.LogInformation("DockConfig.IsLocked → {Locked}.", locked);
+        Raise();
+    }
+
     public void UpdateIconSize(int iconSizeDp)
     {
         var clamped = Math.Clamp(iconSizeDp, 32, 96);
