@@ -82,6 +82,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
     private readonly IShortcutResolver     _shortcutResolver;
     private readonly IDockConfigStore      _dockConfigStore;
     private readonly IRevealZoneHost       _revealZoneHost;
+    private readonly IAutoStartService     _autoStart;
 
     // --- Auto-hide state ----------------------------------------------------
     private const int    AutoHideShowMs        = 400;  // slide IN duration (gentle reveal)
@@ -164,7 +165,8 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         IIconExtractor        iconExtractor,
         IShortcutResolver     shortcutResolver,
         IDockConfigStore      dockConfigStore,
-        IRevealZoneHost       revealZoneHost)
+        IRevealZoneHost       revealZoneHost,
+        IAutoStartService     autoStart)
     {
         _pinnedRepo       = pinnedRepo;
         _launchService    = launchService;
@@ -172,6 +174,7 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
         _shortcutResolver = shortcutResolver;
         _dockConfigStore  = dockConfigStore;
         _revealZoneHost   = revealZoneHost;
+        _autoStart        = autoStart;
 
         // CRITICAL: assign drag/drop handlers BEFORE InitializeComponent so the
         // XAML binding {Binding Path=DragHandler} evaluates to our subclass,
@@ -868,6 +871,10 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
             {
                 top.IsChecked = _dockConfigStore.Current.AutoHide;
             }
+            if (top.Tag is string asTag && asTag == "AutoStart")
+            {
+                top.IsChecked = _autoStart.IsEnabled;
+            }
             if (top.Header is "Position")
             {
                 foreach (var sub in top.Items.OfType<MenuItem>())
@@ -1017,6 +1024,14 @@ public partial class MainDockWindow : Window, INotifyPropertyChanged
                 ApplyAutoHide(true, animate: false);
             }
         }
+    }
+
+    private void AutoStart_Click(object sender, RoutedEventArgs e)
+    {
+        var enable = !_autoStart.IsEnabled;
+        if (enable) { _autoStart.Enable(); }
+        else        { _autoStart.Disable(); }
+        LogEvent($"Auto-start: {(enable ? "on" : "off")}");
     }
 
     private void AutoHide_Click(object sender, RoutedEventArgs e)

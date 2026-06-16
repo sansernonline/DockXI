@@ -25,5 +25,8 @@
     <!-- WPF migration (DockXI.WpfShell) -->
     <PackageVersion Include="gong-wpf-dragdrop" Version="3.2.1" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.10" />
+    <!-- H.NotifyIcon.Wpf = modern .NET 5+ fork of Hardcodet's tray-icon
+         library. Same TaskbarIcon class name, namespace is H.NotifyIcon. -->
+    <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.1.4" />
   </ItemGroup>
 </Project>

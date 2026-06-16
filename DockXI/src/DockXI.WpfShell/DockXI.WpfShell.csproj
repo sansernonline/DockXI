@@ -9,9 +9,32 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
   </PropertyGroup>
+
+  <!-- Portable single-file publish settings — only activate during Release
+       publish so Debug builds stay fast. Run from the project folder:
+         dotnet publish -c Release
+       or right-click the project in VS → Publish (target = Folder).
+       Output lands at <repo>\dist\DockXI-v<version>\DockXI.WpfShell.exe so
+       it's easy to find next to the .exe rather than nested deep in bin. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+    <PublishDir>$(MSBuildThisFileDirectory)..\..\..\dist\DockXI-v$(Version)\</PublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon.ico" Condition="Exists('Assets\icon.ico')" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\DockXI.Core\DockXI.Core.csproj" />
@@ -21,6 +44,7 @@
     <!-- Central Package Management (Directory.Packages.props) pins versions —
          PackageReference must NOT carry Version here. -->
     <PackageReference Include="gong-wpf-dragdrop" />
+    <PackageReference Include="H.NotifyIcon.Wpf" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />

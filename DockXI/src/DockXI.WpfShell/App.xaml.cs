@@ -9,6 +9,7 @@ using DockXI.LaunchService;
 using DockXI.Monitors;
 using DockXI.Settings;
 using DockXI.Storage;
+using DockXI.WpfShell.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -17,6 +18,7 @@ namespace DockXI.WpfShell;
 public partial class App : Application
 {
     private IHost? _host;
+    private TrayIconManager? _trayIcon;
 
     public static IServiceProvider Services => ((App)Current)._host!.Services;
 
@@ -45,6 +47,7 @@ public partial class App : Application
                 services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
                 services.AddMonitors();
                 services.AddSingleton<IRevealZoneHost, WpfRevealZoneHost>();
+                services.AddSingleton<IAutoStartService, WindowsAutoStartService>();
 
                 services.AddSingleton<MainDockWindow>();
             })
@@ -74,11 +77,16 @@ public partial class App : Application
         var window = _host.Services.GetRequiredService<MainDockWindow>();
         window.Show();
 
+        // System-tray icon — lets the user toggle dock visibility and quit
+        // even when the dock is hidden / auto-hidden.
+        _trayIcon = new TrayIconManager(window);
+
         await _host.StartAsync();
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        _trayIcon?.Dispose();
         if (_host is not null)
         {
             // Flush any pending debounced save before the process exits.
