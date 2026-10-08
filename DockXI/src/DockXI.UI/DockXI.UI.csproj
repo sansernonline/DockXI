@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
-    <RootNamespace>DockXI.WpfShell</RootNamespace>
-    <AssemblyName>DockXI.WpfShell</AssemblyName>
+    <RootNamespace>DockXI.UI</RootNamespace>
+    <AssemblyName>DockXI</AssemblyName>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -18,8 +18,11 @@
        publish so Debug builds stay fast. Run from the project folder:
          dotnet publish -c Release
        or right-click the project in VS → Publish (target = Folder).
-       Output lands at <repo>\dist\DockXI-v<version>\DockXI.WpfShell.exe so
-       it's easy to find next to the .exe rather than nested deep in bin. -->
+       Output lands at:
+         bin\x64\Publish\DockXI-v<version>-<rid>\DockXI.exe
+         bin\x64\Publish\DockXI-v<version>-<rid>.zip
+       — version + RID are baked into the folder/zip name, so successive
+       version builds sit side-by-side under Publish\ without collision. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -29,7 +32,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
-    <PublishDir>$(MSBuildThisFileDirectory)..\..\..\dist\DockXI-v$(Version)\</PublishDir>
+    <PublishDir>$(MSBuildThisFileDirectory)bin\x64\Publish\DockXI-v$(Version)-$(RuntimeIdentifier)\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,5 +53,21 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
+
+  <!-- After Release publish, zip the output folder so it's ready to upload
+       as a release asset. Sits next to the unzipped folder inside
+       bin\x64\Publish\ — matches Steady's release layout. Release\ stays
+       around so incremental rebuilds + local Release-config testing work. -->
+  <Target Name="ZipPublishOutput" AfterTargets="Publish"
+          Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <PublishRoot>$(MSBuildThisFileDirectory)bin\x64\Publish\</PublishRoot>
+      <ZipFile>$(PublishRoot)DockXI-v$(Version)-$(RuntimeIdentifier).zip</ZipFile>
+    </PropertyGroup>
+    <MakeDir Directories="$(PublishRoot)" />
+    <Delete Files="$(ZipFile)" />
+    <ZipDirectory SourceDirectory="$(PublishDir)" DestinationFile="$(ZipFile)" />
+    <Message Text="Zipped release: $(ZipFile)" Importance="high" />
+  </Target>
 
 </Project>

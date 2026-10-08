@@ -6,7 +6,9 @@ namespace DockXI.DockHost;
 
 internal sealed class PinnedItemRepository : IPinnedItemRepository
 {
-    public const int MaxItems = 50;
+    // No pin-count cap: the dock clamps its length to the monitor and
+    // scrolls when tiles overflow (see MainDockWindow), so the repository
+    // no longer needs to protect the UI from unbounded growth.
 
     private readonly ObservableCollection<PinnedItem> _items = [];
     private readonly ReadOnlyObservableCollection<PinnedItem> _readonlyItems;
@@ -50,11 +52,6 @@ internal sealed class PinnedItemRepository : IPinnedItemRepository
     public void Add(PinnedItem item, int insertionIndex)
     {
         ArgumentNullException.ThrowIfNull(item);
-
-        if (_items.Count >= MaxItems)
-        {
-            throw new InvalidOperationException("Max item limit reached");
-        }
 
         var clamped = Math.Clamp(insertionIndex, 0, _items.Count);
         var inserted = item with { SortOrder = clamped };

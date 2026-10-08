@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="DockXI.WpfShell" />
+    <InternalsVisibleTo Include="DockXI" />
     <InternalsVisibleTo Include="DockXI.Tests" />
   </ItemGroup>
 </Project>

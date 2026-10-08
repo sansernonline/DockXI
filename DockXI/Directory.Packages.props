@@ -22,7 +22,7 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="Moq" Version="4.20.72" />
 
-    <!-- WPF migration (DockXI.WpfShell) -->
+    <!-- WPF migration (DockXI.UI) -->
     <PackageVersion Include="gong-wpf-dragdrop" Version="3.2.1" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.10" />
     <!-- H.NotifyIcon.Wpf = modern .NET 5+ fork of Hardcodet's tray-icon

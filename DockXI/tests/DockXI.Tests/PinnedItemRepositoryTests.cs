@@ -50,17 +50,19 @@ public sealed class PinnedItemRepositoryTests
     }
 
     [Fact]
-    public void Add_AtCapacity_ThrowsWithExpectedMessage()
+    public void Add_ManyItems_HasNoCapacityLimit()
     {
+        // The old 50-item cap was removed when the dock gained overflow
+        // scrolling — adding far past the former limit must succeed and
+        // keep sort orders contiguous.
         var repo = CreateRepo(out _);
-        for (var i = 0; i < PinnedItemRepository.MaxItems; i++)
+        for (var i = 0; i < 200; i++)
         {
             repo.Add(MakeItem($@"C:\app{i}.exe"), i);
         }
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => repo.Add(MakeItem(@"C:\overflow.exe"), 0));
-        Assert.Equal("Max item limit reached", ex.Message);
+        Assert.Equal(200, repo.Count);
+        Assert.Equal(Enumerable.Range(0, 200), repo.Items.Select(i => i.SortOrder));
     }
 
     [Fact]

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DockXI.Core", "src\DockXI.Core\DockXI.Core.csproj", "{4FDABC74-287F-4DE0-85B9-3FE49FFC6757}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DockXI.WpfShell", "src\DockXI.WpfShell\DockXI.WpfShell.csproj", "{E7A1B2C3-D4E5-4F67-8901-23456789ABCD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DockXI.UI", "src\DockXI.UI\DockXI.UI.csproj", "{E7A1B2C3-D4E5-4F67-8901-23456789ABCD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DockXI.Tests", "tests\DockXI.Tests\DockXI.Tests.csproj", "{169ABD8D-C4D4-4BC7-91BD-893B05BFB40B}"
 EndProject

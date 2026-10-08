@@ -9,11 +9,11 @@ using DockXI.LaunchService;
 using DockXI.Monitors;
 using DockXI.Settings;
 using DockXI.Storage;
-using DockXI.WpfShell.Services;
+using DockXI.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace DockXI.WpfShell;
+namespace DockXI.UI;
 
 public partial class App : Application
 {
@@ -26,9 +26,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        var logsFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DockXI", "logs");
+        // Logs go next to the running .exe in a logs\ subfolder so users can
+        // find them wherever they put the binary (portable layout). Environment
+        // .ProcessPath returns the real exe (not the single-file extraction
+        // temp directory).
+        var exeDir = Path.GetDirectoryName(Environment.ProcessPath)
+                     ?? AppContext.BaseDirectory;
+        var logsFolder = Path.Combine(exeDir, "logs");
 
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices((_, services) =>
@@ -77,9 +81,11 @@ public partial class App : Application
         var window = _host.Services.GetRequiredService<MainDockWindow>();
         window.Show();
 
-        // System-tray icon — lets the user toggle dock visibility and quit
-        // even when the dock is hidden / auto-hidden.
-        _trayIcon = new TrayIconManager(window);
+        // System-tray icon — lets the user toggle dock visibility, toggle
+        // start-with-Windows, and quit even when the dock is hidden.
+        _trayIcon = new TrayIconManager(
+            window,
+            _host.Services.GetRequiredService<IAutoStartService>());
 
         await _host.StartAsync();
     }

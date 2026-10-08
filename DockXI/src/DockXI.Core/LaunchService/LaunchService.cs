@@ -72,6 +72,10 @@ internal sealed class LaunchService : ILaunchService, IDisposable
                     break;
                 }
 
+                case PinnedItemKind.Separator:
+                    // Visual divider — no-op on click.
+                    return Task.FromResult(true);
+
                 default:
                     _logger.LogWarning("Unknown PinnedItemKind {Kind} for {Path}.", item.Kind, item.TargetPath);
                     return Task.FromResult(false);
@@ -97,6 +101,7 @@ internal sealed class LaunchService : ILaunchService, IDisposable
             PinnedItemKind.Folder => Directory.Exists(item.TargetPath),
             PinnedItemKind.Url => Uri.TryCreate(item.TargetPath, UriKind.Absolute, out var uri)
                                   && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps),
+            PinnedItemKind.Separator => true,   // separators are always "valid" (no target)
             _ => false,
         };
     }

@@ -16,7 +16,8 @@ A lightweight, macOS-style floating dock for Windows. Built on **WPF + .NET 8**.
 ## Features
 
 - **Floating dock** — always on top, position on any screen edge (Top / Bottom / Left / Right)
-- **Auto-hide + reveal zone** — dock slides off-screen when idle, peeks back when you brush the edge
+- **Auto-hide + reveal zone** — dock shrinks to a small pill at the screen edge when idle, slides back out when you brush the edge
+- **Unlimited pins + overflow scrolling** — no icon cap; when tiles outgrow the monitor the dock stops growing and the mouse wheel scrolls them
 - **Hover lift** — icons rise smoothly when the cursor passes over them
 - **Drag-to-reorder** — neighbouring icons split aside with orientation-aware push-aside and insert separator
 - **Drag-in to pin** — drop a file / folder from Explorer onto the dock to pin it (works as Admin via UAC bypass)
@@ -36,10 +37,22 @@ git clone <repo-url>
 cd "DockXI - Floating Dock\DockXI"
 dotnet restore
 dotnet build DockXI.sln -c Release
-dotnet run --project src\DockXI.WpfShell
+dotnet run --project src\DockXI.UI
 ```
 
 Or open `DockXI/DockXI.sln` in VS and press **F5**.
+
+### Build outputs
+
+| Configuration | Command | Output | What it is |
+|---------------|---------|--------|------------|
+| **Debug** | `dotnet build` (or F5) | `src\DockXI.UI\bin\x64\Debug\net8.0-...\DockXI.exe` | Unoptimised dev build with debug symbols |
+| **Release** | `dotnet build -c Release` | `src\DockXI.UI\bin\x64\Release\net8.0-...\win-x64\DockXI.exe` | Optimised, **framework-dependent**: small exe + its DLLs beside it; the target machine must have the .NET 8 Desktop Runtime |
+| **Publish** | `dotnet publish src\DockXI.UI -c Release` | `src\DockXI.UI\bin\x64\Publish\DockXI-v<version>-win-x64\DockXI.exe` (+ `.zip`) | **Self-contained single file**: the .NET runtime, WPF and every dependency are packed inside one large exe — copy/unzip anywhere and run, no install needed |
+
+Publish options (`SelfContained`, `PublishSingleFile`, versioned output folder + zip)
+live in `src\DockXI.UI\DockXI.UI.csproj`, not in the `.pubxml` — see the comment
+inside `Properties\PublishProfiles\FolderProfile.pubxml`.
 
 ## Project Layout
 
@@ -47,7 +60,7 @@ Or open `DockXI/DockXI.sln` in VS and press **F5**.
 DockXI/                ← Visual Studio solution
    src/
       DockXI.Core/       ← Domain services + interfaces (Abstractions/)
-      DockXI.WpfShell/   ← WPF app (App, MainDockWindow, view-model)
+      DockXI.UI/         ← WPF app (App, MainDockWindow, view-model)
    tests/
       DockXI.Tests/      ← xUnit unit + integration tests
 docs/                  ← Requirements spec (.docx)

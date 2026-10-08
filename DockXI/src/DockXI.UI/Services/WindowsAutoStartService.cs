@@ -1,9 +1,8 @@
 using System;
-using System.Diagnostics;
 using DockXI.Contracts;
 using Microsoft.Win32;
 
-namespace DockXI.WpfShell.Services;
+namespace DockXI.UI.Services;
 
 /// <summary>
 /// HKCU Run-key implementation of <see cref="IAutoStartService"/>. No admin
@@ -25,7 +24,11 @@ internal sealed class WindowsAutoStartService : IAutoStartService
 
     public void Enable()
     {
-        var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+        // Environment.ProcessPath returns the real .exe path even for
+        // single-file self-extracting deployments (where MainModule.FileName
+        // would point at the AppHost in %TEMP%\.net\... — which gets cleaned
+        // up after the process exits, breaking auto-start on next login).
+        var exePath = Environment.ProcessPath;
         if (string.IsNullOrEmpty(exePath)) { return; }
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true)
                         ?? Registry.CurrentUser.CreateSubKey(RunKey);

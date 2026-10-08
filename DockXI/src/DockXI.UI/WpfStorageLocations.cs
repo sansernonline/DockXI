@@ -1,7 +1,7 @@
 using System.IO;
 using DockXI.Contracts;
 
-namespace DockXI.WpfShell;
+namespace DockXI.UI;
 
 internal sealed class WpfStorageLocations : IStorageLocations
 {

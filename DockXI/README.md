@@ -42,7 +42,7 @@ A floating, always-on-top dock for Windows built on **WPF + .NET 8**, inspired b
 ### Visual Studio
 
 1. Open `DockXI.sln`
-2. Set **DockXI.WpfShell** as Startup Project (right-click → Set as Startup Project)
+2. Set **DockXI.UI** as Startup Project (right-click → Set as Startup Project)
 3. Press **F5**
 
 ### CLI
@@ -51,14 +51,15 @@ A floating, always-on-top dock for Windows built on **WPF + .NET 8**, inspired b
 dotnet restore
 dotnet build  DockXI.sln -c Release
 dotnet test   DockXI.sln -c Release          # run unit tests
-dotnet run    --project src\DockXI.WpfShell  # run the dock
+dotnet run    --project src\DockXI.UI  # run the dock
 ```
 
 ### Publishing
 
 ```powershell
-dotnet publish src\DockXI.WpfShell -c Release -r win-x64 --self-contained false
-# Output: src\DockXI.WpfShell\bin\Release\net8.0-windows10.0.19041.0\publish\
+dotnet publish src\DockXI.UI -c Release
+# Output: src\DockXI.UI\bin\x64\Publish\DockXI-v1.0.0-win-x64\DockXI.exe
+#         src\DockXI.UI\bin\x64\Publish\DockXI-v1.0.0-win-x64.zip
 ```
 
 ---
@@ -70,7 +71,7 @@ DockXI.sln
 Directory.Build.props        ← global compiler flags (Nullable, TreatWarningsAsErrors, NuGetAudit=false)
 Directory.Packages.props     ← Central Package Management — version pins live here
 assets/
-└── icon.svg                 ← app icon master (1024×1024, purple→red gradient + white caret + dock bar)
+└── icon.svg                 ← app icon master (1024×1024, purple→pink gradient + 3 floating tiles on a dock bar, glossy top highlight)
 
 src/
 ├── DockXI.Core/                       ← Domain layer, no UI dependency
@@ -94,7 +95,7 @@ src/
 │   ├── Diagnostics/                   ← FileLoggerProvider, InMemoryLogStore
 │   └── Monitors/                      ← RevealZoneHostStub (auto-hide hook point)
 │
-├── DockXI.WpfShell/                   ← WPF executable
+├── DockXI.UI/                   ← WPF executable
 │   ├── App.xaml + App.xaml.cs         ← Generic Host bootstrap + DI registrations
 │   ├── MainDockWindow.xaml + .cs      ← The dock window itself
 │   ├── PinnedItemViewModel.cs         ← INPC view-model wrapping PinnedItem
@@ -116,7 +117,7 @@ tests/
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  DockXI.WpfShell  (UI, XAML, view-model, WPF adapters)      │
+│  DockXI.UI  (UI, XAML, view-model, WPF adapters)      │
 └───────────────────────────┬─────────────────────────────────┘
                             │  depends on
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -136,7 +137,7 @@ tests/
 | **Generic Host + DI** | `App.xaml.cs` | Lifecycle + service registration via `ConfigureServices(...)` |
 | **Repository + events** | `IPinnedItemRepository` | UI subscribes to `ItemAdded`/`ItemRemoved`, never mutates the collection directly |
 | **CPM** | `Directory.Packages.props` | Single version source for every NuGet package |
-| **`InternalsVisibleTo`** | `Core.csproj` → `WpfShell` + `Tests` | Internals reachable by tests without making them public |
+| **`InternalsVisibleTo`** | `Core.csproj` → `DockXI.UI` + `Tests` | Internals reachable by tests without making them public |
 
 ---
 
@@ -227,6 +228,15 @@ All in `MainDockWindow.xaml.cs`:
 | `BasePad` | `5.0` | Plate padding on every other side |
 | `DockMinWidth` | `52.0` | Minimum width = 1 tile (empty dock is 52×52) |
 | `DockMinHeight` | `52.0` | Minimum height = 1 tile |
+| `AutoHidePeekPx` | `5.0` | Hidden-pill thickness (perpendicular to the edge) |
+| `AutoHidePillLongPx` | `120.0` | Hidden-pill length along the dock axis |
+| `AutoHideShowMs` / `AutoHideHideMs` | `720` | Two-phase show/hide duration (pill↔strip, then slide; phase split `PillPhaseShow`/`PillPhaseHide` inside `AnimateAutoHide`) |
+| `AutoHideCooldownMs` | `750` | Min time between auto-hide toggles — keep ≥ show/hide duration |
+| `OverflowMarginPx` | `40.0` | Long-axis clamp margin (in `PositionAtScreenEdge`): dock length ≤ work area − this; overflow scrolls via `TilesScroller` |
+
+There is **no pinned-item cap** — the dock clamps its long axis to the monitor
+and `TilesScroller` (hidden-scrollbar `ScrollViewer`, mouse-wheel driven)
+scrolls the overflow, so `PinnedItemRepository` accepts unlimited pins.
 
 In `MainDockWindow.xaml`:
 
@@ -278,7 +288,7 @@ Use `Moq` for `IPinnedItemRepository`-style interfaces. Tests never spin up a WP
 | Right-dock tooltip drifts inward | StackPanel `FlowDirection=RightToLeft` leaks into the ToolTip | `tt.FlowDirection = LeftToRight` forced in `Tile_ToolTipOpening` |
 | Drag-in from Explorer silently fails | DockXI runs as Admin, Explorer is User → OLE cross-IL block | Run as standard user; `asInvoker` set in `app.manifest`; UIPI filter + WM_DROPFILES fallback in place |
 | Drag handlers (gong overrides) never fire | `DragHandler`/`DropHandler` assigned AFTER `InitializeComponent` → XAML binding sees null | Assign handlers BEFORE `InitializeComponent` in the constructor |
-| Auto-hide flickers when cursor sits at screen edge | Edge dock has small gap to screen edge → MouseLeave fires when cursor IS at edge → hide → peek covers cursor → MouseEnter → loop | `IsCursorNearDock` extends rect all the way to the anchored screen edge + 500 ms cooldown between toggles |
+| Auto-hide flickers when cursor sits at screen edge | Edge dock has small gap to screen edge → MouseLeave fires when cursor IS at edge → hide → peek covers cursor → MouseEnter → loop | `IsCursorNearDock` extends rect all the way to the anchored screen edge + 750 ms cooldown between toggles (kept ≥ the 720 ms animation) |
 | Taskbar covers bottom dock after Win+D | Both windows are Topmost; taskbar wins z-order shuffle | 300 ms timer re-asserts `HWND_TOPMOST` |
 | First show animation faster than later ones | `BeginAnimation` without explicit `From` reads stale local value | Capture `Left`/`Top`, clear animation, re-set, then animate with explicit `From` |
 | OneDrive truncates files on save | Cloud sync mid-write | Prefer `Read → Edit → Write` over very large `Write` calls; check file size after save |

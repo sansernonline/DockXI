@@ -1,7 +1,7 @@
 using System.Windows;
 using DockXI.Contracts;
 
-namespace DockXI.WpfShell;
+namespace DockXI.UI;
 
 internal sealed class WpfUiDispatcher : IUiDispatcher
 {

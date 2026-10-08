@@ -85,4 +85,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Overflow scrolling** — the dock's long axis is clamped to the monitor work
+  area (40 px margin); when pinned tiles outgrow it, a hidden-scrollbar
+  `ScrollViewer` scrolls them with the mouse wheel (wheel maps to the dock's
+  long axis on every edge; touch panning supported)
+- **Drag-to-pin onto a hidden dock** — dragging a file over the peek pill or
+  the screen-edge reveal strip pops the auto-hidden dock open mid-drag so the
+  drop can complete; an abandoned drag re-hides it (previously auto-hide had
+  to be turned off before pinning)
+- **Tray menu: "Start with Windows"** — checkable item that re-reads the HKCU
+  Run key every time the menu opens, so the tick always matches reality
+- **Context-aware Add file/folder pickers** — the dialogs open at the folder
+  of the tile that was right-clicked (folder pin → itself, file/app pin →
+  its containing folder); a right-click on empty plate space anchors to the
+  nearest tile instead, skipping separators/URLs/broken paths
+
+### Changed
+- **Tile tooltip** now renders as a dark rounded pill (matching the dock
+  plate / context-menu theme) with a soft shadow, instead of bare white text
+  that was unreadable over light windows
+- **Auto-hide hidden state** is now a small centred pill (120 × 5 px) flush
+  with the screen edge instead of a full-length strip
+- **Auto-hide animation** split into two sequenced phases so SHOW reads as
+  "slide out of the screen edge": pill widens into a full-length strip at the
+  edge first, then the strip expands + slides out (hide is the exact mirror);
+  interrupted transitions skip already-satisfied phases; duration 480 → 720 ms
+  so the slide phase keeps its original pace; toggle cooldown 500 → 750 ms
+  (kept ≥ animation length); end-of-transition state is logged to
+  `logs/activity.log` as `[autohide]` lines for diagnostics
+
+### Removed
+- **50-item pin limit** — `PinnedItemRepository` no longer throws at capacity;
+  overflow scrolling replaces the cap
+
 See `docs/09-project-plan.md` for upcoming milestones.

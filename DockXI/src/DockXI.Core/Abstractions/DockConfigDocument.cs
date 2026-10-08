@@ -99,4 +99,4 @@ public enum MagnificationLevel
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PinnedItemKind>))]
-public enum PinnedItemKind { Application, Folder, Url, File }
+public enum PinnedItemKind { Application, Folder, Url, File, Separator }
